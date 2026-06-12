@@ -2,6 +2,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 인터넷 권한 (지도 로딩용) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- 위치 권한 (내 위치 및 지도 활용용) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 카메라 및 미디어 접근 권한 (여행 사진 등록용) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Android 13 (API 33) 이상용 미디어 이미지 읽기 권한 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Android 12 (API 32) 이하용 저장소 읽기 권한 (최대 SDK 32로 설정) -->
+    <uses-permission 
+        android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+
+    <!-- 카메라 기능 선언 (필수 아님으로 설정하여 카메라가 없는 기기에서도 설치 가능하도록 함) -->
+    <uses-feature 
+        android:name="android.hardware.camera" 
+        android:required="false" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -11,6 +32,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Tour_App">
+
+        <!-- Google Maps API Key Meta-data -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
