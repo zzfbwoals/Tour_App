@@ -2,4 +2,21 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- Cyan Path Design System Colors -->
+    <color name="primary">#00478d</color>
+    <color name="secondary">#006491</color>
+    <color name="secondary_container">#7cc9fe</color>
+    <color name="on_secondary_container">#00547a</color>
+    <color name="background">#f8f9fa</color>
+    <color name="surface">#f8f9fa</color>
+    <color name="surface_container_lowest">#ffffff</color>
+    <color name="on_surface">#1B1B1F</color>
+    <color name="on_surface_variant">#424752</color>
+    <color name="outline">#727783</color>
+    <color name="outline_variant">#c2c6d4</color>
+    <color name="surface_variant">#E1E2EC</color>
+    <color name="error">#ba1a1a</color>
+    <color name="error_container">#ffdad6</color>
+    <color name="map_accent">#34A853</color>
 </resources>
