@@ -47,6 +47,30 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 추가/수정 화면 액티비티 -->
+        <activity
+            android:name=".EditActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tour_App" />
+
+        <!-- 상세 조회 화면 액티비티 -->
+        <activity
+            android:name=".DetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tour_App" />
+
+        <!-- 카메라 사진 파일 공유용 FileProvider 정의 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>
