@@ -62,7 +62,7 @@
                     android:layout_height="24dp"
                     android:src="@android:drawable/ic_menu_more"
                     android:contentDescription="더보기"
-                    android:tint="@color/outline" />
+                    app:tint="@color/outline" />
             </LinearLayout>
 
             <LinearLayout

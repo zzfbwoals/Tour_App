@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
+    android:fitsSystemWindows="true"
     >
 
     <!-- Top AppBar -->
@@ -166,7 +167,7 @@
                         app:strokeColor="@color/outline_variant"
                         app:cardElevation="2dp">
 
-                        <fragment
+                        <androidx.fragment.app.FragmentContainerView
                             android:id="@+id/map_detail_mini"
                             android:name="com.google.android.gms.maps.SupportMapFragment"
                             android:layout_width="match_parent"

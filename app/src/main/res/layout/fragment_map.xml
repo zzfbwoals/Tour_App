@@ -4,10 +4,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
-    >
+    android:background="@color/background">
 
-    <fragment
+    <androidx.fragment.app.FragmentContainerView
         android:id="@+id/map_main"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
@@ -44,8 +43,8 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@android:drawable/ic_menu_search"
-                android:contentDescription="검색"
-                android:tint="@color/outline" />
+                android:contentDescription="@string/map_search_desc"
+                app:tint="@color/outline" />
 
             <EditText
                 android:id="@+id/et_map_search"
@@ -54,20 +53,21 @@
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:background="@null"
-                android:hint="여행지 및 주소 검색..."
+                android:hint="@string/map_search_hint"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:textColor="@color/on_surface"
                 android:textSize="14sp"
-                android:maxLines="1" />
+                android:maxLines="1"
+                android:importantForAutofill="no" />
 
             <ImageView
                 android:id="@+id/iv_map_search_go"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@android:drawable/ic_menu_send"
-                android:contentDescription="검색 실행"
-                android:tint="@color/primary" />
+                android:contentDescription="@string/map_search_go_desc"
+                app:tint="@color/primary" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -86,7 +86,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
-            android:contentDescription="지도 유형 변경"
+            android:contentDescription="@string/map_type_desc"
             app:fabSize="mini"
             app:srcCompat="@drawable/ic_map"
             app:backgroundTint="@color/white"
@@ -96,7 +96,7 @@
             android:id="@+id/fab_my_location"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:contentDescription="내 위치"
+            android:contentDescription="@string/map_my_location_desc"
             app:fabSize="mini"
             app:srcCompat="@android:drawable/ic_menu_mylocation"
             app:backgroundTint="@color/white"
@@ -136,7 +136,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:scaleType="centerCrop"
-                    android:contentDescription="마커 여행 사진" />
+                    android:contentDescription="@string/map_marker_photo_desc" />
             </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
@@ -151,7 +151,7 @@
                     android:id="@+id/tv_marker_place"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="여행지명"
+                    android:text="@string/map_default_place"
                     android:textColor="@color/on_surface"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -160,7 +160,7 @@
                     android:id="@+id/tv_marker_date"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="YYYY-MM-DD"
+                    android:text="@string/map_default_date"
                     android:textColor="@color/secondary"
                     android:textSize="12sp"
                     android:layout_marginTop="4dp" />
@@ -169,7 +169,7 @@
                     android:id="@+id/tv_marker_memo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="여기에 짧은 메모 내용이 노출됩니다."
+                    android:text="@string/map_default_memo"
                     android:textColor="@color/on_surface_variant"
                     android:textSize="13sp"
                     android:maxLines="1"
@@ -188,7 +188,7 @@
                     android:id="@+id/btn_marker_go"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="상세보기"
+                    android:text="@string/map_detail_button"
                     android:textSize="11sp"
                     android:backgroundTint="@color/primary"
                     android:textColor="@color/white"
