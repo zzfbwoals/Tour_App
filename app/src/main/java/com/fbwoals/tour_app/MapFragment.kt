@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
@@ -12,12 +13,14 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,6 +56,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private var searchBox: EditText? = null
     private var recordPager: ViewPager2? = null
     private var suggestionList: RecyclerView? = null
+    private var cardIndicator: LinearLayout? = null
     private var records: List<TravelRecord> = emptyList()
     private var latestSuggestions: List<PlaceSuggestion> = emptyList()
     private var suppressSuggestionSearch = false
@@ -77,6 +81,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         searchBox = view.findViewById(R.id.mapSearchBox)
         recordPager = view.findViewById(R.id.mapRecordPager)
         suggestionList = view.findViewById(R.id.mapSuggestionList)
+        cardIndicator = view.findViewById(R.id.mapCardIndicator)
 
         recordAdapter = MapRecordCardAdapter { record ->
             startActivity(Intent(requireContext(), DetailActivity::class.java).putExtra(FeedFragment.EXTRA_RECORD_ID, record.no))
@@ -86,7 +91,15 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             offscreenPageLimit = 1
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
-                    moveToRecord(position)
+                    val realPosition = recordAdapter.realPosition(position)
+                    moveToRecord(realPosition)
+                    updateCardIndicator(realPosition)
+                }
+
+                override fun onPageScrollStateChanged(state: Int) {
+                    if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                        recordAdapter.correctedPosition(currentItem)?.let { setCurrentItem(it, false) }
+                    }
                 }
             })
         }
@@ -167,6 +180,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             googleMap.clear()
             emptyText?.visibility = View.GONE
             recordPager?.visibility = if (records.isEmpty()) View.GONE else View.VISIBLE
+            cardIndicator?.visibility = if (records.size > 1) View.VISIBLE else View.GONE
             recordAdapter.submitList(records)
 
             if (records.isEmpty()) {
@@ -185,8 +199,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 )?.tag = record.no
             }
 
-            recordPager?.setCurrentItem(0, false)
+            recordPager?.setCurrentItem(recordAdapter.initialPosition, false)
             moveToRecord(0, animate = false)
+            updateCardIndicator(0)
         }
     }
 
@@ -194,7 +209,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         val recordId = marker.tag as? Long ?: return false
         val index = records.indexOfFirst { it.no == recordId }
         if (index < 0) return false
-        recordPager?.setCurrentItem(index, true)
+        recordPager?.setCurrentItem(recordAdapter.pagerPositionForReal(index), true)
         return true
     }
 
@@ -206,6 +221,25 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             map?.animateCamera(update)
         } else {
             map?.moveCamera(update)
+        }
+    }
+
+    private fun updateCardIndicator(selectedIndex: Int) {
+        val indicator = cardIndicator ?: return
+        indicator.removeAllViews()
+        val count = recordAdapter.realCount
+        indicator.visibility = if (count > 1) View.VISIBLE else View.GONE
+        repeat(count) { index ->
+            indicator.addView(
+                TextView(requireContext()).apply {
+                    text = "•"
+                    textSize = if (index == selectedIndex) 17f else 12f
+                    alpha = if (index == selectedIndex) 1f else 0.45f
+                    setTextColor(Color.DKGRAY)
+                    gravity = Gravity.CENTER
+                    layoutParams = LinearLayout.LayoutParams(18, 24)
+                }
+            )
         }
     }
 

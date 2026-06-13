@@ -144,6 +144,7 @@
             android:layout_marginTop="8dp"
             android:background="@drawable/input_background"
             android:drawableEnd="@drawable/ic_calendar"
+            android:drawableTint="@color/on_surface_variant"
             android:gravity="center_vertical"
             android:paddingStart="18dp"
             android:paddingEnd="18dp"

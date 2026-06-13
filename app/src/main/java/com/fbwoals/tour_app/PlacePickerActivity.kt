@@ -2,9 +2,12 @@ package com.fbwoals.tour_app
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -14,6 +17,8 @@ import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -36,8 +41,12 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var selectedPanel: View
     private lateinit var selectedName: TextView
     private lateinit var selectedAddress: TextView
+    private lateinit var suggestionList: RecyclerView
+    private lateinit var suggestionAdapter: PlaceSuggestionAdapter
     private var map: GoogleMap? = null
     private var pendingSelection: PickedPlace? = null
+    private var latestSuggestions: List<PlaceSuggestion> = emptyList()
+    private var suppressSuggestionSearch = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,8 +58,22 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         selectedPanel = findViewById(R.id.selectedPlacePanel)
         selectedName = findViewById(R.id.selectedPlaceName)
         selectedAddress = findViewById(R.id.selectedPlaceAddress)
+        suggestionList = findViewById(R.id.placePickerSuggestionList)
+        suggestionAdapter = PlaceSuggestionAdapter { suggestion -> selectSuggestion(suggestion) }
+        suggestionList.layoutManager = LinearLayoutManager(this)
+        suggestionList.adapter = suggestionAdapter
         findViewById<MaterialButton>(R.id.confirmPlaceButton).setOnClickListener { confirmSelection() }
 
+        searchBox.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (suppressSuggestionSearch) return
+                loadPlaceSuggestions(s?.toString().orEmpty())
+            }
+
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
         searchBox.setOnEditorActionListener { _, actionId, event ->
             val isSearchAction = actionId == EditorInfo.IME_ACTION_SEARCH
             val isEnter = event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_UP
@@ -78,7 +101,9 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
             uiSettings.isZoomControlsEnabled = false
             uiSettings.isMapToolbarEnabled = true
             moveCamera(CameraUpdateFactory.newLatLngZoom(SCH_UNIVERSITY, DEFAULT_ZOOM))
+            setOnMapClickListener { hideSuggestions() }
             setOnPoiClickListener { poi ->
+                hideSuggestions()
                 fetchPlace(poi.placeId)
             }
         }
@@ -86,7 +111,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun initializePlaces() {
         if (Places.isInitialized()) return
-        val appInfo = packageManager.getApplicationInfo(packageName, android.content.pm.PackageManager.GET_META_DATA)
+        val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
         val apiKey = appInfo.metaData?.getString("com.google.android.geo.API_KEY").orEmpty()
         if (apiKey.isBlank()) {
             Toast.makeText(this, "지도 API 키를 확인할 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -95,7 +120,56 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         Places.initialize(applicationContext, apiKey)
     }
 
+    private fun loadPlaceSuggestions(query: String) {
+        val keyword = query.trim()
+        if (keyword.length < 2) {
+            latestSuggestions = emptyList()
+            suggestionAdapter.submitList(emptyList())
+            hideSuggestions()
+            return
+        }
+        if (!Places.isInitialized()) return
+
+        val request = FindAutocompletePredictionsRequest.builder()
+            .setQuery(keyword)
+            .build()
+        Places.createClient(this)
+            .findAutocompletePredictions(request)
+            .addOnSuccessListener { response ->
+                latestSuggestions = response.autocompletePredictions.map { prediction ->
+                    PlaceSuggestion(
+                        placeId = prediction.placeId,
+                        primaryText = prediction.getPrimaryText(null).toString(),
+                        secondaryText = prediction.getSecondaryText(null).toString()
+                    )
+                }
+                suggestionAdapter.submitList(latestSuggestions)
+                suggestionList.visibility = if (latestSuggestions.isEmpty()) View.GONE else View.VISIBLE
+            }
+            .addOnFailureListener {
+                latestSuggestions = emptyList()
+                suggestionAdapter.submitList(emptyList())
+                hideSuggestions()
+            }
+    }
+
+    private fun selectSuggestion(suggestion: PlaceSuggestion) {
+        suppressSuggestionSearch = true
+        searchBox.setText(suggestion.primaryText)
+        searchBox.setSelection(suggestion.primaryText.length)
+        suppressSuggestionSearch = false
+        hideSuggestions()
+        hideKeyboard()
+        fetchPlace(suggestion.placeId)
+    }
+
     private fun searchPlace(query: String) {
+        val firstSuggestion = latestSuggestions.firstOrNull()
+        if (firstSuggestion != null) {
+            selectSuggestion(firstSuggestion)
+            return
+        }
+
         val keyword = query.trim()
         if (keyword.isBlank()) return
         if (!Places.isInitialized()) {
@@ -133,9 +207,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         val request = FetchPlaceRequest.newInstance(placeId, fields)
         Places.createClient(this)
             .fetchPlace(request)
-            .addOnSuccessListener { response ->
-                showSelection(response.place)
-            }
+            .addOnSuccessListener { response -> showSelection(response.place) }
             .addOnFailureListener {
                 Toast.makeText(this, "장소 정보를 가져오지 못했습니다.", Toast.LENGTH_SHORT).show()
             }
@@ -210,6 +282,10 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
                 .putExtra(EXTRA_PLACE_PHOTO_URI, photoUri)
         )
         finish()
+    }
+
+    private fun hideSuggestions() {
+        suggestionList.visibility = View.GONE
     }
 
     private fun hideKeyboard() {
