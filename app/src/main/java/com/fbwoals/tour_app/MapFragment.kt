@@ -2,7 +2,10 @@ package com.fbwoals.tour_app
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
@@ -15,6 +18,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +31,7 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,6 +43,8 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private var map: GoogleMap? = null
     private var emptyText: TextView? = null
     private var searchBox: EditText? = null
+    private var recordCard: View? = null
+    private var recordsById: Map<Long, TravelRecord> = emptyMap()
 
     private val locationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -55,6 +62,10 @@ class MapFragment : Fragment(), OnMapReadyCallback {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         emptyText = view.findViewById(R.id.mapEmptyText)
+        recordCard = view.findViewById(R.id.mapRecordCard)
+        view.findViewById<ImageButton>(R.id.mapCardCloseButton).setOnClickListener {
+            recordCard?.visibility = View.GONE
+        }
         searchBox = view.findViewById<EditText>(R.id.mapSearchBox).apply {
             setOnEditorActionListener { _, actionId, event ->
                 val isSearchAction = actionId == EditorInfo.IME_ACTION_SEARCH
@@ -93,6 +104,8 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             uiSettings.isZoomControlsEnabled = false
             uiSettings.isMapToolbarEnabled = true
             uiSettings.isMyLocationButtonEnabled = false
+            setOnMapClickListener { recordCard?.visibility = View.GONE }
+            setOnMarkerClickListener { marker -> onRecordMarkerClick(marker) }
             moveCamera(CameraUpdateFactory.newLatLngZoom(SCH_UNIVERSITY, DEFAULT_ZOOM))
         }
         enableCurrentLocation()
@@ -111,7 +124,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             val records = withContext(Dispatchers.IO) {
                 db.getAll(true).filter { it.latitude != null && it.longitude != null }
             }
+            recordsById = records.associateBy { it.no }
             googleMap.clear()
+            recordCard?.visibility = View.GONE
             emptyText?.visibility = View.GONE
 
             if (records.isEmpty()) {
@@ -120,6 +135,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 return@launch
             }
 
+            val icon = createTravelMarkerIcon()
             records.forEach { record ->
                 val position = LatLng(record.latitude!!, record.longitude!!)
                 googleMap.addMarker(
@@ -127,13 +143,44 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                         .position(position)
                         .title(record.place)
                         .snippet(record.visitDate)
-                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
-                )
+                        .icon(icon)
+                )?.tag = record.no
             }
             val first = records.first()
             googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(first.latitude!!, first.longitude!!), 10f))
         }
     }
+
+    private fun onRecordMarkerClick(marker: Marker): Boolean {
+        val recordId = marker.tag as? Long ?: return false
+        val record = recordsById[recordId] ?: return false
+        showRecordCard(record)
+        map?.animateCamera(CameraUpdateFactory.newLatLng(marker.position))
+        return true
+    }
+
+    private fun showRecordCard(record: TravelRecord) {
+        val card = recordCard ?: return
+        card.findViewById<ImageView>(R.id.mapCardImage).loadTravelImage(record.displayPhotoUri)
+        card.findViewById<TextView>(R.id.mapCardTitle).text = record.place
+        card.findViewById<TextView>(R.id.mapCardDate).text = record.visitDate
+        card.findViewById<TextView>(R.id.mapCardMemo).text =
+            record.memo.ifBlank { "작성된 메모가 없습니다." }
+        card.setOnClickListener {
+            startActivity(Intent(requireContext(), DetailActivity::class.java).putExtra(FeedFragment.EXTRA_RECORD_ID, record.no))
+        }
+        card.visibility = View.VISIBLE
+    }
+
+    private fun createTravelMarkerIcon() =
+        BitmapDescriptorFactory.fromBitmap(
+            Bitmap.createScaledBitmap(
+                BitmapFactory.decodeResource(resources, R.drawable.ic_launcher_custom),
+                72,
+                72,
+                true
+            )
+        )
 
     private fun enableCurrentLocation() {
         val googleMap = map ?: return
@@ -233,7 +280,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 .position(SCH_UNIVERSITY)
                 .title("순천향대학교")
                 .snippet("기본 지도 위치")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+                .icon(createTravelMarkerIcon())
         )
     }
 

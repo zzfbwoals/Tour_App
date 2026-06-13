@@ -10,6 +10,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
@@ -44,10 +46,9 @@ class EditActivity : AppCompatActivity() {
     private var selectedDate: LocalDate = LocalDate.now()
     private var pendingCameraUri: Uri? = null
 
-    private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+    private val imagePicker = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
         if (uris.isEmpty()) return@registerForActivityResult
         uris.forEach { uri ->
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addPhoto(uri.toString())
         }
     }
@@ -133,7 +134,7 @@ class EditActivity : AppCompatActivity() {
             .setTitle("사진 추가")
             .setItems(arrayOf("갤러리에서 여러 장 선택", "카메라로 촬영")) { _, which ->
                 if (which == 0) {
-                    imagePicker.launch(arrayOf("image/*"))
+                    imagePicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
                 } else {
                     val imageFile = createCameraFile()
                     pendingCameraUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", imageFile)

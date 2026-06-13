@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Rect
 import android.location.Geocoder
 import android.net.Uri
 import android.os.Bundle
@@ -30,15 +31,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
+import kotlin.coroutines.resume
 
 class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var db: TravelDbHelper
     private var record: TravelRecord? = null
+    private var detailMap: GoogleMap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -114,6 +118,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
+        detailMap = googleMap
         val current = record ?: return
         val position = LatLng(current.latitude ?: return, current.longitude ?: return)
         googleMap.uiSettings.isZoomControlsEnabled = true
@@ -131,8 +136,9 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         if (root.width == 0 || root.height == 0) return
 
         scope.launch {
+            val mapSnapshot = captureMapSnapshotIfVisible()
             val uri = withContext(Dispatchers.IO) {
-                runCatching { saveViewCapture(root) }.getOrNull()
+                runCatching { saveViewCapture(root, mapSnapshot) }.getOrNull()
             }
             if (uri == null) {
                 Toast.makeText(this@DetailActivity, "화면 공유 이미지를 만들지 못했습니다.", Toast.LENGTH_SHORT).show()
@@ -150,16 +156,40 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun saveViewCapture(view: View): Uri {
+    private suspend fun captureMapSnapshotIfVisible(): Bitmap? {
+        val mapContainer = findViewById<View>(R.id.detailMapContainer)
+        val googleMap = detailMap ?: return null
+        if (mapContainer.visibility != View.VISIBLE || mapContainer.width == 0 || mapContainer.height == 0) return null
+        return suspendCancellableCoroutine { continuation ->
+            googleMap.snapshot { bitmap ->
+                continuation.resume(bitmap)
+            }
+        }
+    }
+
+    private fun saveViewCapture(view: View, mapSnapshot: Bitmap?): Uri {
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         view.draw(canvas)
+        mapSnapshot?.let { drawMapSnapshot(canvas, view, it) }
         val dir = File(cacheDir, "shared").apply { mkdirs() }
         val file = File(dir, "travel_record_${System.currentTimeMillis()}.png")
         FileOutputStream(file).use { output ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
         }
         return FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+    }
+
+    private fun drawMapSnapshot(canvas: Canvas, root: View, mapSnapshot: Bitmap) {
+        val mapContainer = findViewById<View>(R.id.detailMapContainer)
+        val rootLocation = IntArray(2)
+        val mapLocation = IntArray(2)
+        root.getLocationOnScreen(rootLocation)
+        mapContainer.getLocationOnScreen(mapLocation)
+        val left = mapLocation[0] - rootLocation[0]
+        val top = mapLocation[1] - rootLocation[1]
+        val target = Rect(left, top, left + mapContainer.width, top + mapContainer.height)
+        canvas.drawBitmap(mapSnapshot, null, target, null)
     }
 
     private fun showOptions(anchor: View) {
