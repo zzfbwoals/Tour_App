@@ -11,69 +11,83 @@
     app:cardElevation="3dp"
     app:strokeWidth="0dp">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <ImageView
-            android:id="@+id/thumbnailImage"
-            android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:background="@color/surface_variant"
-            android:scaleType="centerCrop"
-            android:contentDescription="여행 사진"
-            tools:src="@drawable/ic_image" />
+        android:layout_height="wrap_content">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/placeText"
+            <ImageView
+                android:id="@+id/thumbnailImage"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/on_surface"
-                android:textSize="21sp"
-                android:textStyle="bold"
-                tools:text="제주도" />
+                android:layout_height="200dp"
+                android:background="@color/surface_variant"
+                android:contentDescription="여행 사진"
+                android:scaleType="centerCrop"
+                tools:src="@drawable/ic_image" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@drawable/ic_calendar"
-                    android:contentDescription="@null" />
+                android:orientation="vertical"
+                android:padding="20dp">
 
                 <TextView
-                    android:id="@+id/dateText"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/placeText"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:textColor="@color/on_surface_variant"
-                    android:textSize="13sp"
-                    tools:text="2026-06-13" />
-            </LinearLayout>
+                    android:textColor="@color/on_surface"
+                    android:textSize="21sp"
+                    android:textStyle="bold"
+                    tools:text="제주도" />
 
-            <TextView
-                android:id="@+id/memoText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:textColor="@color/on_surface_variant"
-                android:textSize="15sp"
-                android:lineSpacingExtra="2dp"
-                tools:text="아름다운 한라산과 제주의 풍경을 둘러봤습니다." />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_calendar" />
+
+                    <TextView
+                        android:id="@+id/dateText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:textColor="@color/on_surface_variant"
+                        android:textSize="13sp"
+                        tools:text="2026-06-13" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/memoText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:ellipsize="end"
+                    android:lineSpacingExtra="2dp"
+                    android:maxLines="2"
+                    android:textColor="@color/on_surface_variant"
+                    android:textSize="15sp"
+                    tools:text="아름다운 한라산과 제주의 풍경을 둘러봤습니다." />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+
+        <CheckBox
+            android:id="@+id/selectCheckBox"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="10dp"
+            android:buttonTint="@color/primary"
+            android:visibility="gone" />
+    </FrameLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -82,6 +82,15 @@ class MainActivity : AppCompatActivity() {
                     .show()
                 true
             }
+            R.id.action_select_delete -> {
+                val current = supportFragmentManager.findFragmentById(R.id.fragmentContainer)
+                if (current is FeedFragment) {
+                    current.toggleSelectionMode()
+                } else {
+                    showFragment(FeedFragment.newInstance(newestFirst))
+                }
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }

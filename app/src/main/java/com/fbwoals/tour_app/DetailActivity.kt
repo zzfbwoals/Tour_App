@@ -1,11 +1,16 @@
 package com.fbwoals.tour_app
 
 import android.content.Intent
+import android.graphics.Color
 import android.location.Geocoder
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -34,6 +39,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         db = TravelDbHelper(this)
         findViewById<ImageButton>(R.id.detailBackButton).setOnClickListener { finish() }
         findViewById<ImageButton>(R.id.shareButton).setOnClickListener { shareRecord() }
+        findViewById<ImageButton>(R.id.detailOptionsButton).setOnClickListener { showOptions(it) }
         val id = intent.getLongExtra(FeedFragment.EXTRA_RECORD_ID, 0)
         loadRecord(id)
     }
@@ -54,6 +60,12 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
             findViewById<ViewPager2>(R.id.detailPhotoPager).apply {
                 adapter = photoAdapter
                 setCurrentItem(photoAdapter.initialPosition, false)
+                updatePhotoIndicator(photoAdapter.realPosition(photoAdapter.initialPosition), photoAdapter.photoCount)
+                registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                    override fun onPageSelected(position: Int) {
+                        updatePhotoIndicator(photoAdapter.realPosition(position), photoAdapter.photoCount)
+                    }
+                })
             }
             findViewById<TextView>(R.id.detailDate).text = current.visitDate
             findViewById<TextView>(R.id.detailPlaceHero).text = current.place
@@ -118,6 +130,49 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
                 "여행 기록 공유"
             )
         )
+    }
+
+    private fun showOptions(anchor: View) {
+        PopupMenu(this, anchor).apply {
+            menu.add("삭제")
+            setOnMenuItemClickListener {
+                confirmDelete()
+                true
+            }
+        }.show()
+    }
+
+    private fun confirmDelete() {
+        val current = record ?: return
+        AlertDialog.Builder(this)
+            .setTitle("기록 삭제")
+            .setMessage("${current.place} 기록을 삭제할까요?")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("삭제") { _, _ ->
+                scope.launch {
+                    withContext(Dispatchers.IO) { db.delete(current.no) }
+                    finish()
+                }
+            }
+            .show()
+    }
+
+    private fun updatePhotoIndicator(selectedIndex: Int, count: Int) {
+        val indicator = findViewById<LinearLayout>(R.id.photoIndicator)
+        indicator.removeAllViews()
+        indicator.visibility = if (count > 1) View.VISIBLE else View.GONE
+        repeat(count) { index ->
+            indicator.addView(
+                TextView(this).apply {
+                    text = "●"
+                    textSize = if (index == selectedIndex) 12f else 9f
+                    alpha = if (index == selectedIndex) 1f else 0.45f
+                    setTextColor(Color.WHITE)
+                    gravity = Gravity.CENTER
+                    layoutParams = LinearLayout.LayoutParams(18, 24)
+                }
+            )
+        }
     }
 
     private fun resolveLocationLabel(latitude: Double, longitude: Double): String {

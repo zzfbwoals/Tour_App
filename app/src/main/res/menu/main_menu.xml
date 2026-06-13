@@ -11,4 +11,9 @@
         android:icon="@drawable/ic_delete"
         android:title="전체 삭제"
         app:showAsAction="always" />
+    <item
+        android:id="@+id/action_select_delete"
+        android:icon="@drawable/ic_more_vertical"
+        android:title="선택 삭제"
+        app:showAsAction="always" />
 </menu>

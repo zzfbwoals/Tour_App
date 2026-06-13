@@ -9,6 +9,7 @@ class DetailPhotoPagerAdapter(
     private val photoUris: List<String>
 ) : RecyclerView.Adapter<DetailPhotoPagerAdapter.PhotoViewHolder>() {
     private val effectivePhotoUris = photoUris.ifEmpty { listOf("") }
+    val photoCount: Int = photoUris.size
     val initialPosition: Int =
         if (photoUris.size > 1) (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % photoUris.size) else 0
 
@@ -23,6 +24,8 @@ class DetailPhotoPagerAdapter(
     }
 
     override fun getItemCount(): Int = if (photoUris.size > 1) Int.MAX_VALUE else 1
+
+    fun realPosition(position: Int): Int = if (photoUris.isEmpty()) 0 else position % photoUris.size
 
     class PhotoViewHolder(
         private val imageView: ImageView
