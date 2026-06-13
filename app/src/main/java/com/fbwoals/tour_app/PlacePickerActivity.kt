@@ -42,6 +42,7 @@ import com.google.android.material.button.MaterialButton
 import java.io.File
 import java.io.FileOutputStream
 
+// 기록 작성 중 지도에서 장소를 검색/선택하는 Activity입니다.
 class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var searchBox: EditText
     private lateinit var selectedPanel: View
@@ -54,6 +55,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
     private var latestSuggestions: List<PlaceSuggestion> = emptyList()
     private var suppressSuggestionSearch = false
 
+    // 현재 위치 버튼에서 위치 권한을 요청한 뒤 지도를 현재 위치로 이동합니다.
     private val locationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
@@ -62,6 +64,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
+    // 검색 UI와 지도 Fragment를 초기화합니다.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_place_picker)
@@ -119,6 +122,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         mapFragment.getMapAsync(this)
     }
 
+    // GoogleMap 준비 후 기본 위치, POI 클릭, 현재 위치 레이어를 설정합니다.
     override fun onMapReady(googleMap: GoogleMap) {
         map = googleMap.apply {
             uiSettings.isZoomControlsEnabled = false
@@ -133,10 +137,17 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         enableCurrentLocation()
     }
 
+    /**
+     * Google Places SDK 초기화를 위해 앱 메타데이터에서 API 키 정보를 조회합니다.
+     * 패키지 정보 조회 시 발생 가능한 NameNotFoundException 예외를 포착하여 안전하게 대응합니다.
+     */
     private fun initializePlaces() {
         if (Places.isInitialized()) return
-        val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
-        val apiKey = appInfo.metaData?.getString("com.google.android.geo.API_KEY").orEmpty()
+        val apiKey = runCatching {
+            val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            appInfo.metaData?.getString("com.google.android.geo.API_KEY").orEmpty()
+        }.getOrNull().orEmpty()
+
         if (apiKey.isBlank()) {
             Toast.makeText(this, "지도 API 키를 확인할 수 없습니다.", Toast.LENGTH_SHORT).show()
             return
@@ -144,6 +155,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         Places.initialize(applicationContext, apiKey)
     }
 
+    // 입력한 글자에 맞는 장소 자동완성 목록을 가져옵니다.
     private fun loadPlaceSuggestions(query: String) {
         val keyword = query.trim()
         if (keyword.length < 2) {
@@ -177,6 +189,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
             }
     }
 
+    // 추천 장소를 누르면 검색창에 반영하고 상세 장소 정보를 조회합니다.
     private fun selectSuggestion(suggestion: PlaceSuggestion) {
         suppressSuggestionSearch = true
         searchBox.setText(suggestion.primaryText)
@@ -187,6 +200,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         fetchPlace(suggestion.placeId)
     }
 
+    // 키보드 검색 버튼을 눌렀을 때 첫 추천 장소 또는 Places 검색 결과를 선택합니다.
     private fun searchPlace(query: String) {
         val firstSuggestion = latestSuggestions.firstOrNull()
         if (firstSuggestion != null) {
@@ -219,6 +233,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
             }
     }
 
+    // Place ID로 이름, 주소, 좌표, 대표 사진 메타데이터를 가져옵니다.
     private fun fetchPlace(placeId: String) {
         if (!Places.isInitialized()) return
         val fields = listOf(
@@ -237,6 +252,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
             }
     }
 
+    // 선택된 장소를 패널에 표시하고 지도 마커를 이동합니다.
     private fun showSelection(place: Place) {
         val position = place.latLng ?: return
         val name = place.name.orEmpty()
@@ -263,6 +279,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    // 선택 확정 시 대표 사진을 가져온 뒤 EditActivity에 결과를 반환합니다.
     private fun confirmSelection() {
         val selection = pendingSelection ?: return
         val metadata = selection.photoMetadata
@@ -285,6 +302,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
             }
     }
 
+    // 위치 권한이 있으면 현재 위치 레이어를 켭니다.
     private fun enableCurrentLocation() {
         val googleMap = map ?: return
         val hasFineLocation = ContextCompat.checkSelfPermission(
@@ -304,6 +322,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    // 마지막으로 알려진 현재 위치로 지도를 이동합니다.
     private fun moveToCurrentLocation() {
         val googleMap = map ?: return
         val hasFineLocation = ContextCompat.checkSelfPermission(
@@ -330,6 +349,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         )
     }
 
+    // GPS/네트워크 Provider에서 가장 최신 위치를 반환합니다.
     private fun getLastKnownLocation(): Location? {
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
@@ -346,6 +366,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         }.maxByOrNull { it.time }
     }
 
+    // Places 대표 사진 Bitmap을 앱 내부 파일로 저장하고 URI를 반환합니다.
     private fun savePlacePhoto(bitmap: Bitmap): String? {
         return runCatching {
             val dir = File(filesDir, "images").apply { mkdirs() }
@@ -357,6 +378,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         }.getOrNull()
     }
 
+    // 선택 장소 정보를 Intent에 담아 이전 화면으로 전달합니다.
     private fun finishWithSelection(selection: PickedPlace, photoUri: String?) {
         setResult(
             Activity.RESULT_OK,
@@ -369,10 +391,12 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         finish()
     }
 
+    // 자동완성 목록을 숨깁니다.
     private fun hideSuggestions() {
         suggestionList.visibility = View.GONE
     }
 
+    // 검색창 키보드를 숨기고 포커스를 해제합니다.
     private fun hideKeyboard() {
         val inputManager = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         inputManager.hideSoftInputFromWindow(searchBox.windowToken, 0)
