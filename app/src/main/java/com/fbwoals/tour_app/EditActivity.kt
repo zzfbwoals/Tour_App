@@ -1,7 +1,9 @@
 package com.fbwoals.tour_app
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.widget.EditText
@@ -14,6 +16,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -60,6 +63,14 @@ class EditActivity : AppCompatActivity() {
     private val cameraCapture = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
             pendingCameraUri?.toString()?.let(::addPhoto)
+        }
+    }
+
+    private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            startCameraCapture()
+        } else {
+            Toast.makeText(this, "카메라 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -140,12 +151,30 @@ class EditActivity : AppCompatActivity() {
                 if (which == 0) {
                     imagePicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
                 } else {
-                    val imageFile = createCameraFile()
-                    pendingCameraUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", imageFile)
-                    pendingCameraUri?.let(cameraCapture::launch)
+                    requestCameraCapture()
                 }
             }
             .show()
+    }
+
+    private fun requestCameraCapture() {
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            startCameraCapture()
+        } else {
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun startCameraCapture() {
+        val imageFile = createCameraFile()
+        pendingCameraUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", imageFile)
+        runCatching {
+            pendingCameraUri?.let(cameraCapture::launch)
+        }.onFailure {
+            Toast.makeText(this, "카메라를 실행하지 못했습니다.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun addPhoto(uri: String) {
