@@ -10,6 +10,12 @@ fun ImageView.loadTravelImage(uriText: String?) {
         setBackgroundResource(R.color.surface_variant)
     } else {
         scaleType = ImageView.ScaleType.CENTER_CROP
-        setImageURI(Uri.parse(uriText))
+        runCatching {
+            setImageURI(Uri.parse(uriText))
+        }.onFailure {
+            setImageResource(R.drawable.ic_image)
+            scaleType = ImageView.ScaleType.CENTER
+            setBackgroundResource(R.color.surface_variant)
+        }
     }
 }

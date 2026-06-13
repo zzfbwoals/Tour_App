@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.location.Geocoder
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -51,8 +52,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         findViewById<ImageButton>(R.id.detailBackButton).setOnClickListener { finish() }
         findViewById<ImageButton>(R.id.shareButton).setOnClickListener { shareRecordImage() }
         findViewById<ImageButton>(R.id.detailOptionsButton).setOnClickListener { showOptions(it) }
-        val id = intent.getLongExtra(FeedFragment.EXTRA_RECORD_ID, 0)
-        loadRecord(id)
+        loadRecord(intent.getLongExtra(FeedFragment.EXTRA_RECORD_ID, 0))
     }
 
     override fun onDestroy() {
@@ -70,23 +70,29 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
             val photoAdapter = DetailPhotoPagerAdapter(current.orderedPhotoUris())
             findViewById<ViewPager2>(R.id.detailPhotoPager).apply {
                 adapter = photoAdapter
+                excludeSystemBackGesture()
                 setCurrentItem(photoAdapter.initialPosition, false)
                 updatePhotoIndicator(photoAdapter.realPosition(photoAdapter.initialPosition), photoAdapter.photoCount)
                 registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                     override fun onPageSelected(position: Int) {
                         updatePhotoIndicator(photoAdapter.realPosition(position), photoAdapter.photoCount)
                     }
+
+                    override fun onPageScrollStateChanged(state: Int) {
+                        if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                            photoAdapter.correctedPosition(currentItem)?.let { setCurrentItem(it, false) }
+                        }
+                    }
                 })
             }
+
             findViewById<TextView>(R.id.detailDate).text = current.visitDate
             findViewById<TextView>(R.id.detailPlaceHero).text = current.place
             findViewById<TextView>(R.id.detailMemo).text =
                 current.memo.ifBlank { "작성된 메모가 없습니다." }
             findViewById<TextView>(R.id.detailLocationLabel).text =
                 if (hasLocation) {
-                    withContext(Dispatchers.IO) {
-                        resolveLocationLabel(current.latitude!!, current.longitude!!)
-                    }
+                    withContext(Dispatchers.IO) { resolveLocationLabel(current.latitude!!, current.longitude!!) }
                 } else {
                     "위치 정보 없음"
                 }
@@ -97,11 +103,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (hasLocation) View.VISIBLE else View.GONE
             findViewById<TextView>(R.id.gpsText).apply {
                 visibility = if (hasLocation) View.VISIBLE else View.GONE
-                text = if (hasLocation) {
-                    "GPS: %.5f, %.5f".format(current.latitude, current.longitude)
-                } else {
-                    ""
-                }
+                text = if (hasLocation) "GPS: %.5f, %.5f".format(current.latitude, current.longitude) else ""
             }
 
             if (hasLocation) {
@@ -161,9 +163,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         val googleMap = detailMap ?: return null
         if (mapContainer.visibility != View.VISIBLE || mapContainer.width == 0 || mapContainer.height == 0) return null
         return suspendCancellableCoroutine { continuation ->
-            googleMap.snapshot { bitmap ->
-                continuation.resume(bitmap)
-            }
+            googleMap.snapshot { bitmap -> continuation.resume(bitmap) }
         }
     }
 
@@ -174,9 +174,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         mapSnapshot?.let { drawMapSnapshot(canvas, view, it) }
         val dir = File(cacheDir, "shared").apply { mkdirs() }
         val file = File(dir, "travel_record_${System.currentTimeMillis()}.png")
-        FileOutputStream(file).use { output ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-        }
+        FileOutputStream(file).use { output -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, output) }
         return FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
     }
 
@@ -188,8 +186,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         mapContainer.getLocationOnScreen(mapLocation)
         val left = mapLocation[0] - rootLocation[0]
         val top = mapLocation[1] - rootLocation[1]
-        val target = Rect(left, top, left + mapContainer.width, top + mapContainer.height)
-        canvas.drawBitmap(mapSnapshot, null, target, null)
+        canvas.drawBitmap(mapSnapshot, null, Rect(left, top, left + mapContainer.width, top + mapContainer.height), null)
     }
 
     private fun showOptions(anchor: View) {
@@ -224,14 +221,21 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         repeat(count) { index ->
             indicator.addView(
                 TextView(this).apply {
-                    text = "●"
-                    textSize = if (index == selectedIndex) 12f else 9f
-                    alpha = if (index == selectedIndex) 1f else 0.45f
+                    text = "•"
+                    textSize = if (index == selectedIndex) 18f else 13f
+                    alpha = if (index == selectedIndex) 1f else 0.55f
                     setTextColor(Color.WHITE)
                     gravity = Gravity.CENTER
-                    layoutParams = LinearLayout.LayoutParams(18, 24)
+                    layoutParams = LinearLayout.LayoutParams(20, 28)
                 }
             )
+        }
+    }
+
+    private fun View.excludeSystemBackGesture() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        post {
+            systemGestureExclusionRects = listOf(Rect(0, 0, width, height))
         }
     }
 
@@ -251,10 +255,6 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun TravelRecord.orderedPhotoUris(): List<String> {
         val coverUri = displayPhotoUri
         val uniquePhotoUris = photoUris.ifEmpty { listOfNotNull(photoUri) }.distinct()
-        return if (coverUri == null) {
-            uniquePhotoUris
-        } else {
-            listOf(coverUri) + uniquePhotoUris.filterNot { it == coverUri }
-        }
+        return if (coverUri == null) uniquePhotoUris else listOf(coverUri) + uniquePhotoUris.filterNot { it == coverUri }
     }
 }

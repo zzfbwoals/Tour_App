@@ -25,6 +25,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -48,8 +49,11 @@ class EditActivity : AppCompatActivity() {
 
     private val imagePicker = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
         if (uris.isEmpty()) return@registerForActivityResult
-        uris.forEach { uri ->
-            addPhoto(uri.toString())
+        scope.launch {
+            val copiedUris = withContext(Dispatchers.IO) {
+                uris.mapNotNull { uri -> copyImageToInternalStorage(uri) ?: uri.toString() }
+            }
+            copiedUris.forEach(::addPhoto)
         }
     }
 
@@ -165,6 +169,17 @@ class EditActivity : AppCompatActivity() {
     private fun createCameraFile(): File {
         val dir = File(filesDir, "images").apply { mkdirs() }
         return File(dir, "travel_${System.currentTimeMillis()}.jpg")
+    }
+
+    private fun copyImageToInternalStorage(sourceUri: Uri): String? {
+        return runCatching {
+            val dir = File(filesDir, "images").apply { mkdirs() }
+            val file = File(dir, "picked_${System.currentTimeMillis()}_${sourceUri.lastPathSegment.hashCode()}.jpg")
+            contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(file).use { output -> input.copyTo(output) }
+            } ?: return@runCatching null
+            Uri.fromFile(file).toString()
+        }.getOrNull()
     }
 
     private fun showDatePicker() {

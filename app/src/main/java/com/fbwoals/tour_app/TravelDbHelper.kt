@@ -28,12 +28,12 @@ class TravelDbHelper(context: Context) :
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
-            db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_LATITUDE REAL")
-            db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_LONGITUDE REAL")
+            addColumnIfMissing(db, COL_LATITUDE, "REAL")
+            addColumnIfMissing(db, COL_LONGITUDE, "REAL")
         }
         if (oldVersion < 3) {
-            db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_PHOTO_URIS TEXT")
-            db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_COVER_PHOTO_URI TEXT")
+            addColumnIfMissing(db, COL_PHOTO_URIS, "TEXT")
+            addColumnIfMissing(db, COL_COVER_PHOTO_URI, "TEXT")
             db.execSQL(
                 """
                 UPDATE $TABLE_NAME
@@ -42,6 +42,12 @@ class TravelDbHelper(context: Context) :
                 WHERE $COL_PHOTO_URI IS NOT NULL AND $COL_PHOTO_URI != ''
                 """.trimIndent()
             )
+        }
+        if (oldVersion < 4) {
+            addColumnIfMissing(db, COL_LATITUDE, "REAL")
+            addColumnIfMissing(db, COL_LONGITUDE, "REAL")
+            addColumnIfMissing(db, COL_PHOTO_URIS, "TEXT")
+            addColumnIfMissing(db, COL_COVER_PHOTO_URI, "TEXT")
         }
     }
 
@@ -140,9 +146,26 @@ class TravelDbHelper(context: Context) :
             ?: listOfNotNull(legacyPhotoUri)
     }
 
+    private fun addColumnIfMissing(db: SQLiteDatabase, column: String, type: String) {
+        val exists = db.rawQuery("PRAGMA table_info($TABLE_NAME)", null).use { cursor ->
+            var found = false
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == column) {
+                    found = true
+                    break
+                }
+            }
+            found
+        }
+        if (!exists) {
+            db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $column $type")
+        }
+    }
+
     companion object {
         const val DATABASE_NAME = "sch_travel_footprints.db"
-        const val DATABASE_VERSION = 3
+        const val DATABASE_VERSION = 4
         const val TABLE_NAME = "travel_records"
         const val COL_NO = "no"
         const val COL_PLACE = "place"
