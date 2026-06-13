@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +24,10 @@ import kotlinx.coroutines.withContext
 class MainActivity : AppCompatActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var db: TravelDbHelper
+    private lateinit var bottomNavigation: BottomNavigationView
     private var newestFirst = true
+    private var currentNavItemId = R.id.nav_feed
+    private var syncingNavigation = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,26 +43,33 @@ class MainActivity : AppCompatActivity() {
         findViewById<FloatingActionButton>(R.id.addRecordFab).setOnClickListener {
             startActivity(Intent(this, EditActivity::class.java))
         }
+        supportFragmentManager.addOnBackStackChangedListener {
+            syncNavigationWithCurrentFragment()
+        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                confirmExit()
+                handleBackNavigation()
             }
         })
-        findViewById<BottomNavigationView>(R.id.bottomNavigation).setOnItemSelectedListener {
+        bottomNavigation = findViewById(R.id.bottomNavigation)
+        bottomNavigation.setOnItemSelectedListener {
+            if (it.itemId == currentNavItemId) return@setOnItemSelectedListener true
+            currentNavItemId = it.itemId
             when (it.itemId) {
                 R.id.nav_feed -> {
-                    showFragment(FeedFragment.newInstance(newestFirst))
+                    showFragment(FeedFragment.newInstance(newestFirst), addToBackStack = false)
                     true
                 }
                 R.id.nav_map -> {
-                    showFragment(MapFragment())
+                    showFragment(MapFragment(), addToBackStack = true)
                     true
                 }
                 else -> false
             }
         }
         if (savedInstanceState == null) {
-            showFragment(FeedFragment.newInstance(newestFirst))
+            currentNavItemId = R.id.nav_feed
+            showFragment(FeedFragment.newInstance(newestFirst), addToBackStack = false)
         }
     }
 
@@ -71,7 +82,7 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_sort -> {
                 newestFirst = !newestFirst
-                showFragment(FeedFragment.newInstance(newestFirst))
+                navigateToFeed()
                 true
             }
             R.id.action_delete_all -> {
@@ -93,7 +104,7 @@ class MainActivity : AppCompatActivity() {
                 if (current is FeedFragment) {
                     current.toggleSelectionMode()
                 } else {
-                    showFragment(FeedFragment.newInstance(newestFirst))
+                    navigateToFeed()
                 }
                 true
             }
@@ -113,9 +124,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
+        showFragment(fragment, addToBackStack = false)
+    }
+
+    private fun showFragment(fragment: Fragment, addToBackStack: Boolean) {
+        if (!addToBackStack) {
+            supportFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+        }
+        val transaction = supportFragmentManager.beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
-            .commit()
+        if (addToBackStack) {
+            transaction.addToBackStack(fragment::class.java.simpleName)
+        }
+        transaction.commit()
     }
 
     private fun refreshCurrent() {
@@ -123,6 +144,36 @@ class MainActivity : AppCompatActivity() {
             is FeedFragment -> current.reload()
             is MapFragment -> current.reloadMarkers()
         }
+    }
+
+    private fun handleBackNavigation() {
+        if (currentNavItemId == R.id.nav_map && supportFragmentManager.backStackEntryCount > 0) {
+            supportFragmentManager.popBackStack()
+        } else {
+            confirmExit()
+        }
+    }
+
+    private fun navigateToFeed() {
+        if (currentNavItemId != R.id.nav_feed) {
+            currentNavItemId = R.id.nav_feed
+            bottomNavigation.selectedItemId = R.id.nav_feed
+        } else {
+            showFragment(FeedFragment.newInstance(newestFirst))
+        }
+    }
+
+    private fun syncNavigationWithCurrentFragment() {
+        val current = supportFragmentManager.findFragmentById(R.id.fragmentContainer)
+        val targetItemId = when (current) {
+            is MapFragment -> R.id.nav_map
+            else -> R.id.nav_feed
+        }
+        if (currentNavItemId == targetItemId || syncingNavigation) return
+        syncingNavigation = true
+        currentNavItemId = targetItemId
+        bottomNavigation.selectedItemId = targetItemId
+        syncingNavigation = false
     }
 
     private fun confirmExit() {
