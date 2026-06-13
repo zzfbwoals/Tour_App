@@ -34,7 +34,7 @@
             android:layout_marginStart="12dp"
             android:layout_weight="1"
             android:background="@null"
-            android:hint="Search destinations..."
+            android:hint="장소 검색..."
             android:imeOptions="actionSearch"
             android:includeFontPadding="false"
             android:inputType="text"
@@ -52,7 +52,7 @@
         android:layout_gravity="center"
         android:gravity="center"
         android:padding="24dp"
-        android:text="GPS records will appear on the map."
+        android:text="GPS가 포함된 기록이 지도에 표시됩니다."
         android:textColor="@color/on_surface_variant"
         android:textSize="16sp"
         android:visibility="gone" />
@@ -71,7 +71,7 @@
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:background="@drawable/map_control_background"
-            android:contentDescription="Current location"
+            android:contentDescription="현재 위치"
             android:elevation="6dp"
             android:padding="14dp"
             android:src="@drawable/ic_my_location" />
@@ -82,7 +82,7 @@
             android:layout_height="56dp"
             android:layout_marginTop="12dp"
             android:background="@drawable/map_control_background"
-            android:contentDescription="Zoom in"
+            android:contentDescription="확대"
             android:elevation="6dp"
             android:padding="14dp"
             android:src="@drawable/ic_plus_dark" />
@@ -93,7 +93,7 @@
             android:layout_height="56dp"
             android:layout_marginTop="12dp"
             android:background="@drawable/map_control_background"
-            android:contentDescription="Zoom out"
+            android:contentDescription="축소"
             android:elevation="6dp"
             android:padding="14dp"
             android:src="@drawable/ic_minus_dark" />

@@ -25,14 +25,14 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back"
+                android:contentDescription="뒤로가기"
                 android:src="@drawable/ic_back" />
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="SCH Travel Footprints"
+                android:text="SCH 여행 발자국"
                 android:textColor="@color/primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
@@ -42,7 +42,7 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Share"
+                android:contentDescription="공유"
                 android:src="@drawable/ic_share" />
         </LinearLayout>
 
@@ -55,7 +55,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@color/surface_variant"
-                android:contentDescription="Travel photo"
+                android:contentDescription="여행 사진"
                 android:scaleType="centerCrop" />
 
             <LinearLayout
@@ -108,7 +108,7 @@
                     android:layout_height="wrap_content"
                     android:drawableStart="@drawable/ic_location"
                     android:drawablePadding="10dp"
-                    android:text="LOCATION"
+                    android:text="위치"
                     android:textAllCaps="true"
                     android:textColor="@color/secondary"
                     android:textSize="13sp"
@@ -142,7 +142,7 @@
             android:layout_marginEnd="20dp"
             android:drawableStart="@drawable/ic_map"
             android:drawablePadding="10dp"
-            android:text="LOCATION MARKER"
+            android:text="위치 표시"
             android:textColor="@color/on_surface_variant"
             android:textSize="14sp"
             android:textStyle="bold" />

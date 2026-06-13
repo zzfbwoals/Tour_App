@@ -3,9 +3,9 @@
     <item
         android:id="@+id/nav_feed"
         android:icon="@drawable/ic_compass"
-        android:title="Feed" />
+        android:title="기록" />
     <item
         android:id="@+id/nav_map"
         android:icon="@drawable/ic_map"
-        android:title="Map" />
+        android:title="지도" />
 </menu>

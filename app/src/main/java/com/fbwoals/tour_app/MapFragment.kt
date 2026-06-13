@@ -151,7 +151,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             googleMap.isMyLocationEnabled = true
             googleMap.uiSettings.isMyLocationButtonEnabled = false
         } catch (_: SecurityException) {
-            Toast.makeText(requireContext(), "Location permission is required.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "위치 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -169,7 +169,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
 
         val location = getLastKnownLocation()
         if (location == null) {
-            Toast.makeText(requireContext(), "Current location is not available yet.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "현재 위치를 아직 확인할 수 없습니다.", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -212,7 +212,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             }
 
             if (result == null) {
-                Toast.makeText(requireContext(), "No matching place found.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "일치하는 장소를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
                 return@launch
             }
 
@@ -231,8 +231,8 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         googleMap.addMarker(
             MarkerOptions()
                 .position(SCH_UNIVERSITY)
-                .title("Soonchunhyang University")
-                .snippet("Default map location")
+                .title("순천향대학교")
+                .snippet("기본 지도 위치")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
         )
     }

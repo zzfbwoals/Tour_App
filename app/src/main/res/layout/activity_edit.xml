@@ -33,7 +33,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
-                android:text="Edit Record"
+                android:text="기록 수정"
                 android:textColor="@color/on_surface"
                 android:textSize="26sp"
                 android:textStyle="bold" />
@@ -42,7 +42,7 @@
                 android:id="@+id/saveButton"
                 android:layout_width="112dp"
                 android:layout_height="52dp"
-                android:text="Save"
+                android:text="저장"
                 android:textAllCaps="false"
                 android:textColor="@android:color/white"
                 android:textSize="16sp"
@@ -69,7 +69,7 @@
                 android:layout_height="44dp"
                 android:layout_marginStart="18dp"
                 android:layout_marginTop="18dp"
-                android:text="Record Cover"
+                android:text="대표 사진"
                 android:textAllCaps="false"
                 android:textColor="@color/on_surface_variant"
                 app:backgroundTint="#EAF6FA"
@@ -82,7 +82,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="30dp"
-            android:text="Place Name"
+            android:text="장소 이름"
             android:textColor="@color/on_surface_variant"
             android:textSize="15sp"
             android:textStyle="bold" />
@@ -103,7 +103,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Visit Date"
+            android:text="방문 날짜"
             android:textColor="@color/on_surface_variant"
             android:textSize="15sp"
             android:textStyle="bold" />
@@ -125,7 +125,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Memory Notes"
+            android:text="여행 메모"
             android:textColor="@color/on_surface_variant"
             android:textSize="15sp"
             android:textStyle="bold" />
@@ -149,7 +149,7 @@
             android:layout_height="56dp"
             android:layout_marginTop="36dp"
             android:backgroundTint="@android:color/transparent"
-            android:text="Delete This Memory"
+            android:text="이 기록 삭제"
             android:textColor="@color/error_red"
             android:visibility="gone" />
     </LinearLayout>

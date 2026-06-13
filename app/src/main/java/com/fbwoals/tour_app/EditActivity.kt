@@ -79,7 +79,7 @@ class EditActivity : AppCompatActivity() {
         deleteButton = findViewById(R.id.deleteButton)
         dateEdit.setOnClickListener { showDatePicker() }
         deleteButton.setOnClickListener { confirmDelete() }
-        findViewById<TextView>(R.id.editTitle).text = if (editingId > 0) "Edit Record" else "New Record"
+        findViewById<TextView>(R.id.editTitle).text = if (editingId > 0) "기록 수정" else "새 기록"
     }
 
     private fun loadRecord(id: Long) {
@@ -97,8 +97,8 @@ class EditActivity : AppCompatActivity() {
 
     private fun choosePhotoSource() {
         AlertDialog.Builder(this)
-            .setTitle("?�진 첨�?")
-            .setItems(arrayOf("갤러리에???�택", "카메?�로 촬영")) { _, which ->
+            .setTitle("사진 첨부")
+            .setItems(arrayOf("갤러리에서 선택", "카메라로 촬영")) { _, which ->
                 if (which == 0) {
                     imagePicker.launch(arrayOf("image/*"))
                 } else {
@@ -131,7 +131,7 @@ class EditActivity : AppCompatActivity() {
     private fun saveRecord() {
         val place = placeEdit.text.toString().trim()
         if (place.isBlank()) {
-            placeEdit.error = "?�행지 ?�름???�력?�세??"
+            placeEdit.error = "여행지 이름을 입력하세요."
             return
         }
         val memo = memoEdit.text.toString().trim()
@@ -149,17 +149,17 @@ class EditActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 if (editingId > 0) db.update(record) else db.insert(record)
             }
-            Toast.makeText(this@EditActivity, "기록???�?�했?�니??", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@EditActivity, "기록을 저장했습니다.", Toast.LENGTH_SHORT).show()
             finish()
         }
     }
 
     private fun confirmDelete() {
         AlertDialog.Builder(this)
-            .setTitle("기록 ??��")
-            .setMessage("???�행 기록????��?�까??")
+            .setTitle("기록 삭제")
+            .setMessage("이 여행 기록을 삭제할까요?")
             .setNegativeButton("취소", null)
-            .setPositiveButton("??��") { _, _ ->
+            .setPositiveButton("삭제") { _, _ ->
                 scope.launch {
                     withContext(Dispatchers.IO) { db.delete(editingId) }
                     finish()

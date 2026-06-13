@@ -38,7 +38,7 @@
                 android:textColor="@color/on_surface"
                 android:textSize="21sp"
                 android:textStyle="bold"
-                tools:text="Jeju Island" />
+                tools:text="제주도" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -73,7 +73,7 @@
                 android:textColor="@color/on_surface_variant"
                 android:textSize="15sp"
                 android:lineSpacingExtra="2dp"
-                tools:text="Explored the volcanic landscapes and the beautiful Hallasan mountain." />
+                tools:text="아름다운 한라산과 제주의 풍경을 둘러봤습니다." />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

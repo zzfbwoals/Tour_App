@@ -51,7 +51,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
             findViewById<TextView>(R.id.detailPlaceHero).text = current.place
             findViewById<TextView>(R.id.detailPlace).text = current.place
             findViewById<TextView>(R.id.detailMemo).text =
-                current.memo.ifBlank { "No memo has been written." }
+                current.memo.ifBlank { "작성된 메모가 없습니다." }
 
             val hasLocation = current.latitude != null && current.longitude != null
             findViewById<TextView>(R.id.locationMarkerTitle).visibility =
@@ -101,7 +101,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
                 Intent(Intent.ACTION_SEND)
                     .setType("text/plain")
                     .putExtra(Intent.EXTRA_TEXT, body),
-                "Share travel record"
+                "여행 기록 공유"
             )
         )
     }
