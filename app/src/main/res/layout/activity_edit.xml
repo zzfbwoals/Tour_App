@@ -115,6 +115,8 @@
                 android:inputType="textCapWords"
                 android:paddingStart="18dp"
                 android:paddingEnd="8dp"
+                android:textColor="@color/on_surface"
+                android:textColorHint="@color/on_surface_variant"
                 android:textSize="18sp" />
 
             <ImageButton
@@ -171,6 +173,8 @@
             android:inputType="textMultiLine|textCapSentences"
             android:maxLength="500"
             android:padding="18dp"
+            android:textColor="@color/on_surface"
+            android:textColorHint="@color/on_surface_variant"
             android:textSize="17sp" />
 
         <Button
