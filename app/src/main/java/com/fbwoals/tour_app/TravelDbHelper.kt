@@ -17,6 +17,8 @@ class TravelDbHelper(context: Context) :
                 $COL_VISIT_DATE TEXT NOT NULL,
                 $COL_MEMO TEXT,
                 $COL_PHOTO_URI TEXT,
+                $COL_PHOTO_URIS TEXT,
+                $COL_COVER_PHOTO_URI TEXT,
                 $COL_LATITUDE REAL,
                 $COL_LONGITUDE REAL
             )
@@ -28,6 +30,18 @@ class TravelDbHelper(context: Context) :
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_LATITUDE REAL")
             db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_LONGITUDE REAL")
+        }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_PHOTO_URIS TEXT")
+            db.execSQL("ALTER TABLE $TABLE_NAME ADD COLUMN $COL_COVER_PHOTO_URI TEXT")
+            db.execSQL(
+                """
+                UPDATE $TABLE_NAME
+                SET $COL_PHOTO_URIS = $COL_PHOTO_URI,
+                    $COL_COVER_PHOTO_URI = $COL_PHOTO_URI
+                WHERE $COL_PHOTO_URI IS NOT NULL AND $COL_PHOTO_URI != ''
+                """.trimIndent()
+            )
         }
     }
 
@@ -81,7 +95,13 @@ class TravelDbHelper(context: Context) :
             put(COL_PLACE, place)
             put(COL_VISIT_DATE, visitDate)
             put(COL_MEMO, memo)
-            put(COL_PHOTO_URI, photoUri)
+            val coverUri = coverPhotoUri ?: photoUris.firstOrNull() ?: photoUri
+            val allPhotoUris = photoUris.ifEmpty {
+                listOfNotNull(photoUri)
+            }.distinct()
+            put(COL_PHOTO_URI, coverUri)
+            put(COL_PHOTO_URIS, allPhotoUris.joinToString(PHOTO_URI_SEPARATOR))
+            put(COL_COVER_PHOTO_URI, coverUri)
             if (latitude == null) putNull(COL_LATITUDE) else put(COL_LATITUDE, latitude)
             if (longitude == null) putNull(COL_LONGITUDE) else put(COL_LONGITUDE, longitude)
         }
@@ -103,22 +123,36 @@ class TravelDbHelper(context: Context) :
             place = getString(getColumnIndexOrThrow(COL_PLACE)),
             visitDate = getString(getColumnIndexOrThrow(COL_VISIT_DATE)),
             memo = nullableString(COL_MEMO).orEmpty(),
-            photoUri = nullableString(COL_PHOTO_URI),
+            photoUri = nullableString(COL_COVER_PHOTO_URI) ?: nullableString(COL_PHOTO_URI),
             latitude = nullableDouble(COL_LATITUDE),
-            longitude = nullableDouble(COL_LONGITUDE)
+            longitude = nullableDouble(COL_LONGITUDE),
+            photoUris = parsePhotoUris(nullableString(COL_PHOTO_URIS), nullableString(COL_PHOTO_URI)),
+            coverPhotoUri = nullableString(COL_COVER_PHOTO_URI) ?: nullableString(COL_PHOTO_URI)
         )
+    }
+
+    private fun parsePhotoUris(photoUrisText: String?, legacyPhotoUri: String?): List<String> {
+        return photoUrisText
+            ?.split(PHOTO_URI_SEPARATOR)
+            ?.map { it.trim() }
+            ?.filter { it.isNotBlank() }
+            ?.ifEmpty { null }
+            ?: listOfNotNull(legacyPhotoUri)
     }
 
     companion object {
         const val DATABASE_NAME = "sch_travel_footprints.db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 3
         const val TABLE_NAME = "travel_records"
         const val COL_NO = "no"
         const val COL_PLACE = "place"
         const val COL_VISIT_DATE = "visit_date"
         const val COL_MEMO = "memo"
         const val COL_PHOTO_URI = "photo_uri"
+        const val COL_PHOTO_URIS = "photo_uris"
+        const val COL_COVER_PHOTO_URI = "cover_photo_uri"
         const val COL_LATITUDE = "latitude"
         const val COL_LONGITUDE = "longitude"
+        private const val PHOTO_URI_SEPARATOR = "\n"
     }
 }

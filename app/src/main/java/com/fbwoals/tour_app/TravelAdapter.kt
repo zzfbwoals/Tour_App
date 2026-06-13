@@ -43,7 +43,7 @@ class TravelAdapter(
             place.text = record.place
             date.text = record.visitDate
             memo.text = record.memo.ifBlank { "남겨진 메모가 없습니다." }
-            thumbnail.loadTravelImage(record.photoUri)
+            thumbnail.loadTravelImage(record.displayPhotoUri)
             itemView.setOnClickListener { onOpen(record) }
             itemView.setOnLongClickListener {
                 showMenu(record)

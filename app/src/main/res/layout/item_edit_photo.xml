@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="84dp"
+    android:layout_height="84dp"
+    android:layout_marginEnd="10dp">
+
+    <ImageView
+        android:id="@+id/photoThumb"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/surface_variant"
+        android:contentDescription="저장된 사진"
+        android:scaleType="centerCrop" />
+
+    <TextView
+        android:id="@+id/coverBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="24dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/chip_background"
+        android:gravity="center"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:text="대표"
+        android:textColor="@color/on_surface"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+</FrameLayout>

@@ -7,5 +7,10 @@ data class TravelRecord(
     val memo: String,
     val photoUri: String?,
     val latitude: Double?,
-    val longitude: Double?
-)
+    val longitude: Double?,
+    val photoUris: List<String> = photoUri?.takeIf { it.isNotBlank() }?.let(::listOf).orEmpty(),
+    val coverPhotoUri: String? = photoUri ?: photoUris.firstOrNull()
+) {
+    val displayPhotoUri: String?
+        get() = coverPhotoUri ?: photoUris.firstOrNull() ?: photoUri
+}

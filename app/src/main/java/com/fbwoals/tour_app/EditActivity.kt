@@ -13,6 +13,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,25 +34,27 @@ class EditActivity : AppCompatActivity() {
     private lateinit var memoEdit: EditText
     private lateinit var photoPreview: ImageView
     private lateinit var deleteButton: android.widget.Button
+    private lateinit var photoList: RecyclerView
+    private lateinit var photoAdapter: EditPhotoAdapter
     private var editingId: Long = 0
-    private var photoUriText: String? = null
+    private val photoUris = mutableListOf<String>()
+    private var coverPhotoUri: String? = null
     private var selectedLatitude: Double? = null
     private var selectedLongitude: Double? = null
     private var selectedDate: LocalDate = LocalDate.now()
     private var pendingCameraUri: Uri? = null
 
-    private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
+    private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isEmpty()) return@registerForActivityResult
+        uris.forEach { uri ->
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            photoUriText = uri.toString()
-            photoPreview.loadTravelImage(photoUriText)
+            addPhoto(uri.toString())
         }
     }
 
     private val cameraCapture = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
-            photoUriText = pendingCameraUri?.toString()
-            photoPreview.loadTravelImage(photoUriText)
+            pendingCameraUri?.toString()?.let(::addPhoto)
         }
     }
 
@@ -62,11 +66,9 @@ class EditActivity : AppCompatActivity() {
             .takeUnless { it.isNaN() }
         selectedLongitude = data.getDoubleExtra(PlacePickerActivity.EXTRA_PLACE_LONGITUDE, Double.NaN)
             .takeUnless { it.isNaN() }
-        val placePhotoUri = data.getStringExtra(PlacePickerActivity.EXTRA_PLACE_PHOTO_URI)
-        if (!placePhotoUri.isNullOrBlank()) {
-            photoUriText = placePhotoUri
-            photoPreview.loadTravelImage(photoUriText)
-        }
+        data.getStringExtra(PlacePickerActivity.EXTRA_PLACE_PHOTO_URI)
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::addPhoto)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,6 +99,13 @@ class EditActivity : AppCompatActivity() {
         memoEdit = findViewById(R.id.memoEdit)
         photoPreview = findViewById(R.id.photoPreview)
         deleteButton = findViewById(R.id.deleteButton)
+        photoList = findViewById(R.id.photoList)
+        photoAdapter = EditPhotoAdapter { selectedUri ->
+            coverPhotoUri = selectedUri
+            refreshPhotos()
+        }
+        photoList.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        photoList.adapter = photoAdapter
         dateEdit.setOnClickListener { showDatePicker() }
         deleteButton.setOnClickListener { confirmDelete() }
         findViewById<TextView>(R.id.editTitle).text = if (editingId > 0) "기록 수정" else "새 기록"
@@ -109,18 +118,20 @@ class EditActivity : AppCompatActivity() {
             memoEdit.setText(record.memo)
             selectedDate = runCatching { LocalDate.parse(record.visitDate, DB_DATE) }.getOrDefault(LocalDate.now())
             dateEdit.text = selectedDate.format(DB_DATE)
-            photoUriText = record.photoUri
+            photoUris.clear()
+            photoUris.addAll(record.photoUris)
+            coverPhotoUri = record.coverPhotoUri ?: record.displayPhotoUri
             selectedLatitude = record.latitude
             selectedLongitude = record.longitude
-            photoPreview.loadTravelImage(photoUriText)
+            refreshPhotos()
             deleteButton.visibility = android.view.View.VISIBLE
         }
     }
 
     private fun choosePhotoSource() {
         AlertDialog.Builder(this)
-            .setTitle("사진 첨부")
-            .setItems(arrayOf("갤러리에서 선택", "카메라로 촬영")) { _, which ->
+            .setTitle("사진 추가")
+            .setItems(arrayOf("갤러리에서 여러 장 선택", "카메라로 촬영")) { _, which ->
                 if (which == 0) {
                     imagePicker.launch(arrayOf("image/*"))
                 } else {
@@ -130,6 +141,24 @@ class EditActivity : AppCompatActivity() {
                 }
             }
             .show()
+    }
+
+    private fun addPhoto(uri: String) {
+        if (photoUris.none { it == uri }) {
+            photoUris += uri
+        }
+        if (coverPhotoUri.isNullOrBlank()) {
+            coverPhotoUri = uri
+        }
+        refreshPhotos()
+    }
+
+    private fun refreshPhotos() {
+        val coverUri = coverPhotoUri ?: photoUris.firstOrNull()
+        coverPhotoUri = coverUri
+        photoPreview.loadTravelImage(coverUri)
+        photoList.visibility = if (photoUris.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+        photoAdapter.submitList(photoUris, coverUri)
     }
 
     private fun createCameraFile(): File {
@@ -158,7 +187,8 @@ class EditActivity : AppCompatActivity() {
         }
         val memo = memoEdit.text.toString().trim()
         scope.launch {
-            val location = withContext(Dispatchers.IO) { ExifLocationReader.readLocation(this@EditActivity, photoUriText) }
+            val coverUri = coverPhotoUri ?: photoUris.firstOrNull()
+            val location = withContext(Dispatchers.IO) { ExifLocationReader.readLocation(this@EditActivity, coverUri) }
             val latitude = selectedLatitude ?: location?.first
             val longitude = selectedLongitude ?: location?.second
             val record = TravelRecord(
@@ -166,9 +196,11 @@ class EditActivity : AppCompatActivity() {
                 place = place,
                 visitDate = selectedDate.format(DB_DATE),
                 memo = memo,
-                photoUri = photoUriText,
+                photoUri = coverUri,
                 latitude = latitude,
-                longitude = longitude
+                longitude = longitude,
+                photoUris = photoUris.toList(),
+                coverPhotoUri = coverUri
             )
             withContext(Dispatchers.IO) {
                 if (editingId > 0) db.update(record) else db.insert(record)
