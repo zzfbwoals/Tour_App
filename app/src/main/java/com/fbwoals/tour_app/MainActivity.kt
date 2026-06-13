@@ -1,46 +1,112 @@
 package com.fbwoals.tour_app
 
+import android.content.Intent
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
+import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
-import com.fbwoals.tour_app.databinding.ActivityMainBinding
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
-
-    private lateinit var binding: ActivityMainBinding
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private lateinit var db: TravelDbHelper
+    private var newestFirst = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        // Toolbar 설정 (옵션 메뉴 활용을 위함)
-        setSupportActionBar(binding.toolbar)
-
-        // 초기 화면 설정 (FeedFragment)
-        if (savedInstanceState == null) {
-            replaceFragment(FeedFragment(), "feed")
+        enableEdgeToEdge()
+        setContentView(R.layout.activity_main)
+        db = TravelDbHelper(this)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
         }
-
-        // BottomNavigationView 선택 이벤트 처리
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
-            when (item.itemId) {
+        setSupportActionBar(null)
+        findViewById<FloatingActionButton>(R.id.addRecordFab).setOnClickListener {
+            startActivity(Intent(this, EditActivity::class.java))
+        }
+        findViewById<BottomNavigationView>(R.id.bottomNavigation).setOnItemSelectedListener {
+            when (it.itemId) {
                 R.id.nav_feed -> {
-                    replaceFragment(FeedFragment(), "feed")
+                    showFragment(FeedFragment.newInstance(newestFirst))
                     true
                 }
                 R.id.nav_map -> {
-                    replaceFragment(MapFragment(), "map")
+                    showFragment(MapFragment())
                     true
                 }
                 else -> false
             }
         }
+        if (savedInstanceState == null) {
+            showFragment(FeedFragment.newInstance(newestFirst))
+        }
     }
 
-    private fun replaceFragment(fragment: Fragment, tag: String) {
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_sort -> {
+                newestFirst = !newestFirst
+                showFragment(FeedFragment.newInstance(newestFirst))
+                true
+            }
+            R.id.action_delete_all -> {
+                AlertDialog.Builder(this)
+                    .setTitle("?�체 ??��")
+                    .setMessage("?�?�된 모든 ?�행 기록????��?�까??")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("??��") { _, _ ->
+                        scope.launch {
+                            withContext(Dispatchers.IO) { db.deleteAll() }
+                            refreshCurrent()
+                        }
+                    }
+                    .show()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshCurrent()
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        db.close()
+        super.onDestroy()
+    }
+
+    private fun showFragment(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment, tag)
+            .replace(R.id.fragmentContainer, fragment)
             .commit()
+    }
+
+    private fun refreshCurrent() {
+        when (val current = supportFragmentManager.findFragmentById(R.id.fragmentContainer)) {
+            is FeedFragment -> current.reload()
+            is MapFragment -> current.reloadMarkers()
+        }
     }
 }

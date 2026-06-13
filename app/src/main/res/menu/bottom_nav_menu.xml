@@ -2,10 +2,10 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_feed"
-        android:icon="@drawable/ic_explore"
-        android:title="피드" />
+        android:icon="@drawable/ic_compass"
+        android:title="Feed" />
     <item
         android:id="@+id/nav_map"
         android:icon="@drawable/ic_map"
-        android:title="지도" />
+        android:title="Map" />
 </menu>

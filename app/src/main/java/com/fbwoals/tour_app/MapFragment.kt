@@ -1,288 +1,251 @@
 package com.fbwoals.tour_app
 
 import android.Manifest
-import android.content.Intent
+import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.location.Geocoder
-import android.net.Uri
+import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
-import com.fbwoals.tour_app.databinding.FragmentMapBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
 class MapFragment : Fragment(), OnMapReadyCallback {
+    private lateinit var db: TravelDbHelper
+    private var map: GoogleMap? = null
+    private var emptyText: TextView? = null
+    private var searchBox: EditText? = null
 
-    private var _binding: FragmentMapBinding? = null
-    private val binding get() = _binding!!
-
-    private lateinit var dbHelper: DBHelper
-    private var googleMap: GoogleMap? = null
-    
-    private val markerRecordMap = HashMap<Marker, TravelRecord>()
-    private var searchMarker: Marker? = null
-
-    // 위치 탐색 권한 요청 Launcher
-    private val requestLocationLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            enableMyLocation()
-        } else {
-            Toast.makeText(requireContext(), "지도에 내 위치를 표시하려면 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) enableCurrentLocation()
         }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        db = TravelDbHelper(requireContext())
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        _binding = FragmentMapBinding.inflate(inflater, container, false)
-        return binding.root
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        return inflater.inflate(R.layout.fragment_map, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        dbHelper = DBHelper(requireContext())
+        emptyText = view.findViewById(R.id.mapEmptyText)
+        searchBox = view.findViewById<EditText>(R.id.mapSearchBox).apply {
+            setOnEditorActionListener { _, actionId, event ->
+                val isSearchAction = actionId == EditorInfo.IME_ACTION_SEARCH
+                val isEnter = event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_UP
+                if (isSearchAction || isEnter) {
+                    searchDestination(text.toString())
+                    hideKeyboard()
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+        view.findViewById<ImageButton>(R.id.zoomInButton).setOnClickListener {
+            map?.animateCamera(CameraUpdateFactory.zoomIn())
+        }
+        view.findViewById<ImageButton>(R.id.zoomOutButton).setOnClickListener {
+            map?.animateCamera(CameraUpdateFactory.zoomOut())
+        }
+        view.findViewById<ImageButton>(R.id.myLocationButton).setOnClickListener {
+            moveToCurrentLocation()
+        }
 
-        val mapFragment = childFragmentManager.findFragmentById(R.id.map_main) as SupportMapFragment
+        val mapFragment = childFragmentManager.findFragmentById(R.id.googleMapContainer)
+            as? SupportMapFragment
+            ?: SupportMapFragment.newInstance().also {
+                childFragmentManager.beginTransaction()
+                    .replace(R.id.googleMapContainer, it)
+                    .commitNow()
+            }
         mapFragment.getMapAsync(this)
-
-        setupUI()
     }
 
-    private fun setupUI() {
-        binding.etMapSearch.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                performSearch()
-                true
-            } else {
-                false
-            }
+    override fun onMapReady(googleMap: GoogleMap) {
+        map = googleMap.apply {
+            uiSettings.isZoomControlsEnabled = false
+            uiSettings.isMapToolbarEnabled = true
+            uiSettings.isMyLocationButtonEnabled = false
+            moveCamera(CameraUpdateFactory.newLatLngZoom(SCH_UNIVERSITY, DEFAULT_ZOOM))
         }
-
-        binding.ivMapSearchGo.setOnClickListener {
-            performSearch()
-        }
-
-        // 일반/위성 지도 유형 전환 토글
-        binding.fabMapType.setOnClickListener {
-            googleMap?.let { map ->
-                map.mapType = if (map.mapType == GoogleMap.MAP_TYPE_NORMAL) {
-                    GoogleMap.MAP_TYPE_SATELLITE
-                } else {
-                    GoogleMap.MAP_TYPE_NORMAL
-                }
-                val typeText = if (map.mapType == GoogleMap.MAP_TYPE_NORMAL) "일반 지도" else "위성 지도"
-                Toast.makeText(requireContext(), "지도 유형: $typeText", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        binding.fabMyLocation.setOnClickListener {
-            checkLocationPermissionAndMove()
-        }
+        enableCurrentLocation()
+        reloadMarkers()
     }
 
-    override fun onMapReady(map: GoogleMap) {
-        googleMap = map
-        
-        map.uiSettings.apply {
-            isZoomControlsEnabled = true
-            isCompassEnabled = true
-        }
-
-        // 지도 위 마커 탭 클릭 시 이벤트
-        map.setOnMarkerClickListener { marker ->
-            val record = markerRecordMap[marker]
-            if (record != null) {
-                showMarkerSummary(record)
-            } else {
-                binding.cardMarkerDetail.visibility = View.GONE
-            }
-            false
-        }
-
-        // 지도 빈 영역 탭 클릭 시 플로팅 카드 닫기
-        map.setOnMapClickListener {
-            binding.cardMarkerDetail.visibility = View.GONE
-        }
-
-        enableMyLocation()
-        loadMarkersFromDB()
+    override fun onDestroy() {
+        db.close()
+        super.onDestroy()
     }
 
-    private fun enableMyLocation() {
-        if (ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            googleMap?.isMyLocationEnabled = true
-        } else {
-            requestLocationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-    }
-
-    private fun checkLocationPermissionAndMove() {
-        if (ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    val currentLatLng = LatLng(location.latitude, location.longitude)
-                    googleMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
-                } else {
-                    Toast.makeText(requireContext(), "현재 위치를 잡지 못했습니다. GPS 사용 설정을 확인하세요.", Toast.LENGTH_SHORT).show()
-                }
-            }
-        } else {
-            requestLocationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-    }
-
-    // SQLite DB에 등록된 기록들 중 GPS 좌표가 있는 랜드마커 시각화
-    private fun loadMarkersFromDB() {
-        lifecycleScope.launch {
+    fun reloadMarkers() {
+        val googleMap = map ?: return
+        if (!isAdded) return
+        viewLifecycleOwner.lifecycleScope.launch {
             val records = withContext(Dispatchers.IO) {
-                dbHelper.getAllRecords()
+                db.getAll(true).filter { it.latitude != null && it.longitude != null }
             }
-            
-            googleMap?.let { map ->
-                map.clear()
-                markerRecordMap.clear()
-                
-                var hasMarker = false
-                var lastLatLng = LatLng(36.7698, 126.9318) // 기본 마커: 순천향대학교
+            googleMap.clear()
+            emptyText?.visibility = View.GONE
 
-                records.forEach { record ->
-                    if (record.latitude != null && record.longitude != null) {
-                        val pos = LatLng(record.latitude, record.longitude)
-                        lastLatLng = pos
-                        hasMarker = true
-
-                        val marker = map.addMarker(
-                            MarkerOptions()
-                                .position(pos)
-                                .title(record.place)
-                                .snippet(record.visitDate)
-                        )
-                        if (marker != null) {
-                            markerRecordMap[marker] = record
-                        }
-                    }
-                }
-
-                // 핀 위치 기반 카메라 줌
-                if (hasMarker) {
-                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(lastLatLng, 10f))
-                } else {
-                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(lastLatLng, 15f))
-                }
+            if (records.isEmpty()) {
+                addSchMarker(googleMap)
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(SCH_UNIVERSITY, DEFAULT_ZOOM))
+                return@launch
             }
+
+            records.forEach { record ->
+                val position = LatLng(record.latitude!!, record.longitude!!)
+                googleMap.addMarker(
+                    MarkerOptions()
+                        .position(position)
+                        .title(record.place)
+                        .snippet(record.visitDate)
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+                )
+            }
+            val first = records.first()
+            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(first.latitude!!, first.longitude!!), 10f))
         }
     }
 
-    // Geocoder 주소 검색 기능 비동기 구현 (가산점 획득 및 ANR 제거)
-    private fun performSearch() {
-        val keyword = binding.etMapSearch.text.toString().trim()
-        if (keyword.isEmpty()) {
-            Toast.makeText(requireContext(), "검색할 장소를 입력하세요.", Toast.LENGTH_SHORT).show()
+    private fun enableCurrentLocation() {
+        val googleMap = map ?: return
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            requireContext(),
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasFineLocation) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
             return
         }
 
-        lifecycleScope.launch {
-            val address = withContext(Dispatchers.IO) {
-                try {
-                    val geocoder = Geocoder(requireContext(), Locale.KOREA)
-                    val list = geocoder.getFromLocationName(keyword, 1)
-                    if (!list.isNullOrEmpty()) list[0] else null
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            if (address != null) {
-                val searchLatLng = LatLng(address.latitude, address.longitude)
-                googleMap?.let { map ->
-                    searchMarker?.remove()
-                    searchMarker = map.addMarker(
-                        MarkerOptions()
-                            .position(searchLatLng)
-                            .title(keyword)
-                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
-                    )
-                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(searchLatLng, 15f))
-                }
-            } else {
-                Toast.makeText(requireContext(), "검색 결과가 없습니다.", Toast.LENGTH_SHORT).show()
-            }
+        try {
+            googleMap.isMyLocationEnabled = true
+            googleMap.uiSettings.isMyLocationButtonEnabled = false
+        } catch (_: SecurityException) {
+            Toast.makeText(requireContext(), "Location permission is required.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // 마커 클릭 시 하단 요약 플로팅 카드 노출
-    private fun showMarkerSummary(record: TravelRecord) {
-        binding.cardMarkerDetail.visibility = View.VISIBLE
-        binding.tvMarkerPlace.text = record.place
-        binding.tvMarkerDate.text = record.visitDate
-        binding.tvMarkerMemo.text = record.memo
+    private fun moveToCurrentLocation() {
+        val googleMap = map ?: return
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            requireContext(),
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
-        // 비동기 이미지 썸네일 디코딩 로드
-        lifecycleScope.launch {
-            val bitmap = withContext(Dispatchers.IO) {
-                try {
-                    if (record.photoUri.isNotEmpty()) {
-                        val uri = Uri.parse(record.photoUri)
-                        context?.contentResolver?.openInputStream(uri)?.use { inputStream ->
-                            val options = BitmapFactory.Options().apply {
-                                inSampleSize = 4
-                            }
-                            BitmapFactory.decodeStream(inputStream, null, options)
-                        }
-                    } else null
-                } catch (e: Exception) {
-                    null
-                }
-            }
-            if (bitmap != null) {
-                binding.ivMarkerThumb.setImageBitmap(bitmap)
-            } else {
-                binding.ivMarkerThumb.setImageResource(R.drawable.ic_gallery)
-            }
+        if (!hasFineLocation) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            return
         }
 
-        binding.btnMarkerGo.setOnClickListener {
-            val intent = Intent(requireContext(), DetailActivity::class.java).apply {
-                putExtra("RECORD_ID", record.id)
+        val location = getLastKnownLocation()
+        if (location == null) {
+            Toast.makeText(requireContext(), "Current location is not available yet.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        googleMap.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(
+                LatLng(location.latitude, location.longitude),
+                16f
+            )
+        )
+    }
+
+    private fun getLastKnownLocation(): Location? {
+        val locationManager = requireContext().getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        return providers.mapNotNull { provider ->
+            runCatching {
+                if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED
+                ) {
+                    locationManager.getLastKnownLocation(provider)
+                } else {
+                    null
+                }
+            }.getOrNull()
+        }.maxByOrNull { it.time }
+    }
+
+    private fun searchDestination(query: String) {
+        val googleMap = map ?: return
+        val keyword = query.trim()
+        if (keyword.isBlank()) return
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    Geocoder(requireContext(), Locale.KOREA)
+                        .getFromLocationName(keyword, 1)
+                        ?.firstOrNull()
+                }.getOrNull()
             }
-            startActivity(intent)
+
+            if (result == null) {
+                Toast.makeText(requireContext(), "No matching place found.", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            val position = LatLng(result.latitude, result.longitude)
+            googleMap.addMarker(
+                MarkerOptions()
+                    .position(position)
+                    .title(keyword)
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+            )
+            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(position, 15f))
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    private fun addSchMarker(googleMap: GoogleMap) {
+        googleMap.addMarker(
+            MarkerOptions()
+                .position(SCH_UNIVERSITY)
+                .title("Soonchunhyang University")
+                .snippet("Default map location")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+        )
+    }
+
+    private fun hideKeyboard() {
+        val view = searchBox ?: return
+        val inputManager = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        inputManager.hideSoftInputFromWindow(view.windowToken, 0)
+        view.clearFocus()
+    }
+
+    companion object {
+        private val SCH_UNIVERSITY = LatLng(36.76974, 126.93152)
+        private const val DEFAULT_ZOOM = 16f
     }
 }

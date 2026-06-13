@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Tour_App"
 include(":app")
+ 

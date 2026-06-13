@@ -2,183 +2,114 @@ package com.fbwoals.tour_app
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.ContextMenu
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.core.view.MenuHost
-import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.fbwoals.tour_app.databinding.FragmentFeedBinding
+import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class FeedFragment : Fragment() {
+    private lateinit var db: TravelDbHelper
+    private lateinit var adapter: TravelAdapter
+    private lateinit var emptyView: TextView
+    private var newestFirst: Boolean = true
 
-    private var _binding: FragmentFeedBinding? = null
-    private val binding get() = _binding!!
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        newestFirst = arguments?.getBoolean(ARG_NEWEST_FIRST, true) ?: true
+        db = TravelDbHelper(requireContext())
+    }
 
-    private lateinit var dbHelper: DBHelper
-    private lateinit var feedAdapter: FeedAdapter
-    private var sortByDateDesc = true // 기본값: 최근 날짜순 정렬
-
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        _binding = FragmentFeedBinding.inflate(inflater, container, false)
-        return binding.root
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        return inflater.inflate(R.layout.fragment_feed, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        dbHelper = DBHelper(requireContext())
-
-        setupRecyclerView()
-        setupMenu()
-
-        // FAB 클릭 시 EditActivity로 이동 (글 작성 추가 모드)
-        binding.fabAdd.setOnClickListener {
-            val intent = Intent(requireContext(), EditActivity::class.java)
-            startActivity(intent)
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        loadTravelRecords()
-    }
-
-    private fun setupRecyclerView() {
-        feedAdapter = FeedAdapter(
-            onItemClick = { record ->
-                // 상세 화면 이동
-                val intent = Intent(requireContext(), DetailActivity::class.java).apply {
-                    putExtra("RECORD_ID", record.id)
-                }
-                startActivity(intent)
-            },
-            onItemLongClick = { record, view ->
-                false
-            }
+        emptyView = view.findViewById(R.id.emptyView)
+        adapter = TravelAdapter(
+            onOpen = { openDetail(it.no) },
+            onEdit = { openEdit(it.no) },
+            onDelete = { confirmDelete(it) }
         )
-
-        binding.rvFeed.apply {
+        view.findViewById<RecyclerView>(R.id.travelRecyclerView).apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = feedAdapter
+            adapter = this@FeedFragment.adapter
+        }
+        view.findViewById<View>(R.id.sortButton).setOnClickListener {
+            newestFirst = !newestFirst
+            reload()
+        }
+        view.findViewById<View>(R.id.deleteAllButton).setOnClickListener {
+            confirmDeleteAll()
+        }
+        reload()
+    }
+
+    override fun onDestroy() {
+        db.close()
+        super.onDestroy()
+    }
+
+    fun reload() {
+        if (!isAdded) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            val records = withContext(Dispatchers.IO) { db.getAll(newestFirst) }
+            adapter.submitList(records)
+            emptyView.visibility = if (records.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
-    // 옵션 메뉴 바인딩 (정렬 토글 및 전체 삭제)
-    private fun setupMenu() {
-        val menuHost: MenuHost = requireActivity()
-        menuHost.addMenuProvider(object : MenuProvider {
-            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                menuInflater.inflate(R.menu.option_menu, menu)
-            }
-
-            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
-                return when (menuItem.itemId) {
-                    R.id.action_sort -> {
-                        sortByDateDesc = !sortByDateDesc
-                        val sortText = if (sortByDateDesc) "최근 날짜순" else "오래된 날짜순"
-                        Toast.makeText(requireContext(), "정렬 변경: $sortText", Toast.LENGTH_SHORT).show()
-                        loadTravelRecords()
-                        true
-                    }
-                    R.id.action_delete_all -> {
-                        showDeleteAllDialog()
-                        true
-                    }
-                    else -> false
-                }
-            }
-        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    private fun openDetail(no: Long) {
+        startActivity(Intent(requireContext(), DetailActivity::class.java).putExtra(EXTRA_RECORD_ID, no))
     }
 
-    // 비동기 코루틴 데이터 로딩
-    private fun loadTravelRecords() {
-        lifecycleScope.launch {
-            val records = withContext(Dispatchers.IO) {
-                dbHelper.getAllRecords(sortByDateDesc)
-            }
-            if (records.isEmpty()) {
-                binding.tvEmpty.visibility = View.VISIBLE
-                binding.rvFeed.visibility = View.GONE
-            } else {
-                binding.tvEmpty.visibility = View.GONE
-                binding.rvFeed.visibility = View.VISIBLE
-                feedAdapter.submitList(records)
-            }
-        }
+    private fun openEdit(no: Long) {
+        startActivity(Intent(requireContext(), EditActivity::class.java).putExtra(EXTRA_RECORD_ID, no))
     }
 
-    // 전체 삭제 알림창
-    private fun showDeleteAllDialog() {
+    private fun confirmDelete(record: TravelRecord) {
         AlertDialog.Builder(requireContext())
-            .setTitle("전체 삭제")
-            .setMessage("저장된 모든 여행 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
-            .setPositiveButton("삭제") { _, _ ->
-                lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        dbHelper.deleteAllRecords()
-                    }
-                    Toast.makeText(requireContext(), "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
-                    loadTravelRecords()
+            .setTitle("기록 ??��")
+            .setMessage("${record.place} 기록????��?�까??")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("??��") { _, _ ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    withContext(Dispatchers.IO) { db.delete(record.no) }
+                    reload()
                 }
             }
-            .setNegativeButton("취소", null)
             .show()
     }
 
-    // 컨텍스트 메뉴 선택 처리
-    override fun onContextItemSelected(item: MenuItem): Boolean {
-        val selectedRecord = feedAdapter.getContextSelectedRecord() ?: return super.onContextItemSelected(item)
-        return when (item.itemId) {
-            1 -> { // 수정
-                val intent = Intent(requireContext(), EditActivity::class.java).apply {
-                    putExtra("RECORD_ID", selectedRecord.id)
-                }
-                startActivity(intent)
-                true
-            }
-            2 -> { // 삭제
-                showDeleteDialog(selectedRecord.id)
-                true
-            }
-            else -> super.onContextItemSelected(item)
-        }
-    }
-
-    // 단일 항목 삭제 알림창
-    private fun showDeleteDialog(recordId: Int) {
+    private fun confirmDeleteAll() {
         AlertDialog.Builder(requireContext())
-            .setTitle("기록 삭제")
-            .setMessage("이 여행 기록을 삭제하시겠습니까?")
-            .setPositiveButton("삭제") { _, _ ->
-                lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        dbHelper.deleteRecord(recordId)
-                    }
-                    Toast.makeText(requireContext(), "기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
-                    loadTravelRecords()
+            .setTitle("?�체 ??��")
+            .setMessage("?�?�된 모든 ?�행 기록????��?�까??")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("??��") { _, _ ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    withContext(Dispatchers.IO) { db.deleteAll() }
+                    reload()
                 }
             }
-            .setNegativeButton("취소", null)
             .show()
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    companion object {
+        const val EXTRA_RECORD_ID = "record_id"
+        private const val ARG_NEWEST_FIRST = "newest_first"
+
+        fun newInstance(newestFirst: Boolean): FeedFragment {
+            return FeedFragment().apply {
+                arguments = Bundle().apply { putBoolean(ARG_NEWEST_FIRST, newestFirst) }
+            }
+        }
     }
 }
