@@ -43,6 +43,9 @@
             android:name=".DetailActivity"
             android:exported="false" />
         <activity
+            android:name=".PlacePickerActivity"
+            android:exported="false" />
+        <activity
             android:name=".EditActivity"
             android:exported="false" />
         <activity

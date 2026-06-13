@@ -34,6 +34,8 @@ class EditActivity : AppCompatActivity() {
     private lateinit var deleteButton: android.widget.Button
     private var editingId: Long = 0
     private var photoUriText: String? = null
+    private var selectedLatitude: Double? = null
+    private var selectedLongitude: Double? = null
     private var selectedDate: LocalDate = LocalDate.now()
     private var pendingCameraUri: Uri? = null
 
@@ -48,6 +50,21 @@ class EditActivity : AppCompatActivity() {
     private val cameraCapture = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
             photoUriText = pendingCameraUri?.toString()
+            photoPreview.loadTravelImage(photoUriText)
+        }
+    }
+
+    private val placePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val data = result.data ?: return@registerForActivityResult
+        placeEdit.setText(data.getStringExtra(PlacePickerActivity.EXTRA_PLACE_NAME).orEmpty())
+        selectedLatitude = data.getDoubleExtra(PlacePickerActivity.EXTRA_PLACE_LATITUDE, Double.NaN)
+            .takeUnless { it.isNaN() }
+        selectedLongitude = data.getDoubleExtra(PlacePickerActivity.EXTRA_PLACE_LONGITUDE, Double.NaN)
+            .takeUnless { it.isNaN() }
+        val placePhotoUri = data.getStringExtra(PlacePickerActivity.EXTRA_PLACE_PHOTO_URI)
+        if (!placePhotoUri.isNullOrBlank()) {
+            photoUriText = placePhotoUri
             photoPreview.loadTravelImage(photoUriText)
         }
     }
@@ -72,6 +89,9 @@ class EditActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.backButton).setOnClickListener { finish() }
         findViewById<MaterialButton>(R.id.saveButton).setOnClickListener { saveRecord() }
         findViewById<MaterialButton>(R.id.photoButton).setOnClickListener { choosePhotoSource() }
+        findViewById<ImageButton>(R.id.placeMapButton).setOnClickListener {
+            placePicker.launch(Intent(this, PlacePickerActivity::class.java))
+        }
         placeEdit = findViewById(R.id.placeEdit)
         dateEdit = findViewById(R.id.dateEdit)
         memoEdit = findViewById(R.id.memoEdit)
@@ -90,6 +110,8 @@ class EditActivity : AppCompatActivity() {
             selectedDate = runCatching { LocalDate.parse(record.visitDate, DB_DATE) }.getOrDefault(LocalDate.now())
             dateEdit.text = selectedDate.format(DB_DATE)
             photoUriText = record.photoUri
+            selectedLatitude = record.latitude
+            selectedLongitude = record.longitude
             photoPreview.loadTravelImage(photoUriText)
             deleteButton.visibility = android.view.View.VISIBLE
         }
@@ -137,14 +159,16 @@ class EditActivity : AppCompatActivity() {
         val memo = memoEdit.text.toString().trim()
         scope.launch {
             val location = withContext(Dispatchers.IO) { ExifLocationReader.readLocation(this@EditActivity, photoUriText) }
+            val latitude = selectedLatitude ?: location?.first
+            val longitude = selectedLongitude ?: location?.second
             val record = TravelRecord(
                 no = editingId,
                 place = place,
                 visitDate = selectedDate.format(DB_DATE),
                 memo = memo,
                 photoUri = photoUriText,
-                latitude = location?.first,
-                longitude = location?.second
+                latitude = latitude,
+                longitude = longitude
             )
             withContext(Dispatchers.IO) {
                 if (editingId > 0) db.update(record) else db.insert(record)

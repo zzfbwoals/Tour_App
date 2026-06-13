@@ -90,17 +90,34 @@
             android:textSize="15sp"
             android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/placeEdit"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:layout_marginTop="8dp"
-            android:background="@drawable/input_background"
-            android:hint="여행지 이름"
-            android:inputType="textCapWords"
-            android:paddingStart="18dp"
-            android:paddingEnd="18dp"
-            android:textSize="18sp" />
+            android:background="@drawable/input_background">
+
+            <EditText
+                android:id="@+id/placeEdit"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="56dp"
+                android:background="@null"
+                android:hint="여행지 이름"
+                android:inputType="textCapWords"
+                android:paddingStart="18dp"
+                android:paddingEnd="8dp"
+                android:textSize="18sp" />
+
+            <ImageButton
+                android:id="@+id/placeMapButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="지도에서 장소 선택"
+                android:src="@drawable/ic_map" />
+        </FrameLayout>
 
         <TextView
             android:layout_width="match_parent"
