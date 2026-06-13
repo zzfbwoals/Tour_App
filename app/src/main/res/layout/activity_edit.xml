@@ -111,7 +111,7 @@
                 android:layout_height="match_parent"
                 android:layout_marginEnd="56dp"
                 android:background="@null"
-                android:hint="여행지 이름"
+                android:hint="장소 이름"
                 android:inputType="textCapWords"
                 android:paddingStart="18dp"
                 android:paddingEnd="8dp"

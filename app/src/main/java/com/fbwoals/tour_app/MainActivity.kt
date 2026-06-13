@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -38,6 +39,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<FloatingActionButton>(R.id.addRecordFab).setOnClickListener {
             startActivity(Intent(this, EditActivity::class.java))
         }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                confirmExit()
+            }
+        })
         findViewById<BottomNavigationView>(R.id.bottomNavigation).setOnItemSelectedListener {
             when (it.itemId) {
                 R.id.nav_feed -> {
@@ -117,5 +123,14 @@ class MainActivity : AppCompatActivity() {
             is FeedFragment -> current.reload()
             is MapFragment -> current.reloadMarkers()
         }
+    }
+
+    private fun confirmExit() {
+        AlertDialog.Builder(this)
+            .setTitle("앱 종료")
+            .setMessage("앱을 종료할까요?")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("종료") { _, _ -> finish() }
+            .show()
     }
 }

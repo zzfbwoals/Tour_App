@@ -4,11 +4,13 @@ import android.Manifest
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +20,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
@@ -38,6 +42,7 @@ class EditActivity : AppCompatActivity() {
     private lateinit var placeEdit: EditText
     private lateinit var dateEdit: TextView
     private lateinit var memoEdit: EditText
+    private lateinit var editRoot: ScrollView
     private lateinit var photoPreview: ImageView
     private lateinit var deleteButton: android.widget.Button
     private lateinit var photoList: RecyclerView
@@ -113,6 +118,7 @@ class EditActivity : AppCompatActivity() {
         placeEdit = findViewById(R.id.placeEdit)
         dateEdit = findViewById(R.id.dateEdit)
         memoEdit = findViewById(R.id.memoEdit)
+        editRoot = findViewById(R.id.editRoot)
         photoPreview = findViewById(R.id.photoPreview)
         deleteButton = findViewById(R.id.deleteButton)
         photoList = findViewById(R.id.photoList)
@@ -123,8 +129,41 @@ class EditActivity : AppCompatActivity() {
         photoList.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         photoList.adapter = photoAdapter
         dateEdit.setOnClickListener { showDatePicker() }
+        memoEdit.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) scrollMemoIntoView()
+        }
+        memoEdit.setOnClickListener { scrollMemoIntoView() }
+        configureKeyboardInsets()
         deleteButton.setOnClickListener { confirmDelete() }
         findViewById<TextView>(R.id.editTitle).text = if (editingId > 0) "기록 수정" else "새 기록"
+    }
+
+    private fun configureKeyboardInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(editRoot) { view, insets ->
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            view.setPadding(
+                view.paddingLeft,
+                view.paddingTop,
+                view.paddingRight,
+                maxOf(imeBottom, systemBottom) + 24
+            )
+            if (memoEdit.hasFocus()) {
+                view.post { scrollMemoIntoView(delayMillis = 80) }
+            }
+            insets
+        }
+    }
+
+    private fun scrollMemoIntoView() {
+        scrollMemoIntoView(delayMillis = 250)
+    }
+
+    private fun scrollMemoIntoView(delayMillis: Long) {
+        editRoot.postDelayed({
+            memoEdit.requestRectangleOnScreen(Rect(0, 0, memoEdit.width, memoEdit.height), true)
+            editRoot.smoothScrollTo(0, (memoEdit.top - 48).coerceAtLeast(0))
+        }, delayMillis)
     }
 
     private fun loadRecord(id: Long) {

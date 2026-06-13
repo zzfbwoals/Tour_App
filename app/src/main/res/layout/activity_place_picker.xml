@@ -60,6 +60,48 @@
         android:elevation="10dp"
         android:visibility="gone" />
 
+    <LinearLayout
+        android:id="@+id/placePickerControlPanel"
+        android:layout_width="56dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="20dp"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <ImageButton
+            android:id="@+id/placePickerMyLocationButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/map_control_background"
+            android:contentDescription="현재 위치"
+            android:elevation="6dp"
+            android:padding="14dp"
+            android:src="@drawable/ic_my_location" />
+
+        <ImageButton
+            android:id="@+id/placePickerZoomInButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/map_control_background"
+            android:contentDescription="확대"
+            android:elevation="6dp"
+            android:padding="14dp"
+            android:src="@drawable/ic_plus_dark" />
+
+        <ImageButton
+            android:id="@+id/placePickerZoomOutButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/map_control_background"
+            android:contentDescription="축소"
+            android:elevation="6dp"
+            android:padding="14dp"
+            android:src="@drawable/ic_minus_dark" />
+    </LinearLayout>
+
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/selectedPlacePanel"
         android:layout_width="match_parent"

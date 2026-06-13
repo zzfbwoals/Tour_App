@@ -21,7 +21,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:lineSpacingExtra="2dp"
-            android:text="SCH 여행\n발자국"
+            android:text="SCH 여행 발자국"
             android:textColor="@color/primary"
             android:textSize="26sp"
             android:textStyle="bold" />

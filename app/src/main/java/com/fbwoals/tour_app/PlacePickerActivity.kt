@@ -1,9 +1,13 @@
 package com.fbwoals.tour_app
 
+import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.location.Location
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
@@ -16,7 +20,9 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -48,6 +54,14 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
     private var latestSuggestions: List<PlaceSuggestion> = emptyList()
     private var suppressSuggestionSearch = false
 
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                enableCurrentLocation()
+                moveToCurrentLocation()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_place_picker)
@@ -62,6 +76,15 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
         suggestionAdapter = PlaceSuggestionAdapter { suggestion -> selectSuggestion(suggestion) }
         suggestionList.layoutManager = LinearLayoutManager(this)
         suggestionList.adapter = suggestionAdapter
+        findViewById<ImageButton>(R.id.placePickerMyLocationButton).setOnClickListener {
+            moveToCurrentLocation()
+        }
+        findViewById<ImageButton>(R.id.placePickerZoomInButton).setOnClickListener {
+            map?.animateCamera(CameraUpdateFactory.zoomIn())
+        }
+        findViewById<ImageButton>(R.id.placePickerZoomOutButton).setOnClickListener {
+            map?.animateCamera(CameraUpdateFactory.zoomOut())
+        }
         findViewById<MaterialButton>(R.id.confirmPlaceButton).setOnClickListener { confirmSelection() }
 
         searchBox.addTextChangedListener(object : TextWatcher {
@@ -107,6 +130,7 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
                 fetchPlace(poi.placeId)
             }
         }
+        enableCurrentLocation()
     }
 
     private fun initializePlaces() {
@@ -259,6 +283,67 @@ class PlacePickerActivity : AppCompatActivity(), OnMapReadyCallback {
             .addOnFailureListener {
                 finishWithSelection(selection, null)
             }
+    }
+
+    private fun enableCurrentLocation() {
+        val googleMap = map ?: return
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasFineLocation) {
+            return
+        }
+
+        try {
+            googleMap.isMyLocationEnabled = true
+            googleMap.uiSettings.isMyLocationButtonEnabled = false
+        } catch (_: SecurityException) {
+            Toast.makeText(this, "위치 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun moveToCurrentLocation() {
+        val googleMap = map ?: return
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasFineLocation) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            return
+        }
+
+        val location = getLastKnownLocation()
+        if (location == null) {
+            Toast.makeText(this, "현재 위치를 아직 확인할 수 없습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        googleMap.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(
+                LatLng(location.latitude, location.longitude),
+                16f
+            )
+        )
+    }
+
+    private fun getLastKnownLocation(): Location? {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        return providers.mapNotNull { provider ->
+            runCatching {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED
+                ) {
+                    locationManager.getLastKnownLocation(provider)
+                } else {
+                    null
+                }
+            }.getOrNull()
+        }.maxByOrNull { it.time }
     }
 
     private fun savePlacePhoto(bitmap: Bitmap): String? {
