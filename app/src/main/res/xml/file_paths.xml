@@ -3,6 +3,9 @@
     <cache-path
         name="camera_cache"
         path="camera/" />
+    <cache-path
+        name="shared_images"
+        path="shared/" />
     <files-path
         name="images"
         path="images/" />

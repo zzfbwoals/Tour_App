@@ -1,8 +1,11 @@
 package com.fbwoals.tour_app
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.location.Geocoder
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -10,8 +13,10 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -26,6 +31,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 
 class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -38,7 +45,7 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         setContentView(R.layout.activity_detail)
         db = TravelDbHelper(this)
         findViewById<ImageButton>(R.id.detailBackButton).setOnClickListener { finish() }
-        findViewById<ImageButton>(R.id.shareButton).setOnClickListener { shareRecord() }
+        findViewById<ImageButton>(R.id.shareButton).setOnClickListener { shareRecordImage() }
         findViewById<ImageButton>(R.id.detailOptionsButton).setOnClickListener { showOptions(it) }
         val id = intent.getLongExtra(FeedFragment.EXTRA_RECORD_ID, 0)
         loadRecord(id)
@@ -119,17 +126,40 @@ class DetailActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 14f))
     }
 
-    private fun shareRecord() {
-        val current = record ?: return
-        val body = "${current.place}\n${current.visitDate}\n\n${current.memo}"
-        startActivity(
-            Intent.createChooser(
-                Intent(Intent.ACTION_SEND)
-                    .setType("text/plain")
-                    .putExtra(Intent.EXTRA_TEXT, body),
-                "여행 기록 공유"
+    private fun shareRecordImage() {
+        val root = findViewById<View>(R.id.detailRoot)
+        if (root.width == 0 || root.height == 0) return
+
+        scope.launch {
+            val uri = withContext(Dispatchers.IO) {
+                runCatching { saveViewCapture(root) }.getOrNull()
+            }
+            if (uri == null) {
+                Toast.makeText(this@DetailActivity, "화면 공유 이미지를 만들지 못했습니다.", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND)
+                        .setType("image/png")
+                        .putExtra(Intent.EXTRA_STREAM, uri)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                    "여행 기록 이미지 공유"
+                )
             )
-        )
+        }
+    }
+
+    private fun saveViewCapture(view: View): Uri {
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        view.draw(canvas)
+        val dir = File(cacheDir, "shared").apply { mkdirs() }
+        val file = File(dir, "travel_record_${System.currentTimeMillis()}.png")
+        FileOutputStream(file).use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        }
+        return FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
     }
 
     private fun showOptions(anchor: View) {
